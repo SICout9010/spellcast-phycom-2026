@@ -1,0 +1,8 @@
+arduino_secrets.h
+casts.jsonl
+test/test_dtw
+__pycache__/
+.DS_Store
+.claude/
+server/backups/
+server/links.json

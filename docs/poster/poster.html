@@ -1,0 +1,275 @@
+<!doctype html>
+<!--
+  Spellcast A1 poster (594 x 841 mm). Edit TEAM at the bottom, then rebuild from the repo root:
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --no-pdf-header-footer --virtual-time-budget=15000 --print-to-pdf=docs/poster/spellcast-poster-a1.pdf docs/poster/poster.html
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --hide-scrollbars --force-device-scale-factor=1.5 --window-size=2245,3179 --virtual-time-budget=15000 --screenshot=docs/poster/spellcast-poster-a1.png docs/poster/poster.html
+-->
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Spellcast poster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=block">
+<style>
+@page { size: 594mm 841mm; margin: 0; }
+:root {
+  --bg: #0b1415; --panel: #111e20; --ink: #dbeae8; --muted: #9db2b3; --faint: #6c8384; --line: #24393b;
+  --accent: #46b6ae; --glow: rgba(70, 182, 174, .5); --led: #ff4a3a;
+  --f-display: "IM Fell English SC", Georgia, serif;
+  --f-body: "IBM Plex Sans Thai", "Instrument Sans", sans-serif;
+  --f-en: "Instrument Sans", "IBM Plex Sans Thai", sans-serif;
+  --f-mono: "JetBrains Mono", monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 594mm; height: 841mm; background: var(--bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.poster { position: relative; width: 594mm; height: 841mm; overflow: hidden; color: var(--ink); font: 400 7.4mm/1.7 var(--f-body);
+  background:
+    radial-gradient(260mm 200mm at 80% 14%, rgba(70, 182, 174, .20), transparent 70%),
+    radial-gradient(300mm 220mm at 10% 52%, rgba(70, 182, 174, .07), transparent 70%),
+    radial-gradient(260mm 180mm at 90% 92%, rgba(70, 182, 174, .08), transparent 70%),
+    linear-gradient(180deg, #081011 0%, #0b1415 40%, #0c1819 100%); }
+.stars { position: absolute; inset: 0; pointer-events: none; }
+.stars i { position: absolute; border-radius: 50%; background: #e6f2f0; }
+.pad { position: relative; padding: 0 34mm; }
+p { margin: 0; }
+h1, h2, h3 { margin: 0; font-weight: 400; }
+.en { font-family: var(--f-en); }
+
+/* Print-safe: no blurred box-shadows (some PDF viewers draw them as solid blocks); glows use filter: drop-shadow. */
+/* ---- top ---- */
+.top { padding-top: 34mm; position: relative; z-index: 2; }
+.eyebrow { font: 500 5.6mm/1 var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 400 71mm/.86 var(--f-display); letter-spacing: .005em; margin-top: 10mm; text-shadow: 0 0 14mm rgba(70, 182, 174, .25); }
+.tag { font: 600 13.5mm/1.35 var(--f-body); margin-top: 9mm; max-width: 300mm; }
+.tag-en { font: 400 7.6mm/1.4 var(--f-en); color: var(--muted); margin-top: 3mm; }
+
+/* ---- hero art ---- */
+.hero { position: absolute; left: 0; top: 0; width: 594mm; height: 420mm; z-index: 1; }
+/* emblem: the Lumos circle as a halo, the wand crossing it with its tip just past the rim */
+.hero .wand { position: absolute; width: 300mm; left: 296mm; top: 88mm; transform: rotate(-14deg); transform-origin: 50% 50%;
+  filter: drop-shadow(0 12mm 14mm rgba(0, 0, 0, .65)); }
+.hero .trace { position: absolute; width: 226mm; height: 226mm; left: 344mm; top: 16mm; overflow: visible;
+  filter: drop-shadow(0 0 2.2mm var(--glow)) drop-shadow(0 0 8mm rgba(70, 182, 174, .35)); }
+.trace path { fill: none; stroke: var(--accent); stroke-width: .95; stroke-linecap: round; stroke-linejoin: round; }
+.trace .core { stroke: #dffaf6; stroke-width: .3; }
+.spark { position: absolute; width: 9mm; height: 9mm; z-index: 1; }
+.spark path { fill: #eafffb; }
+
+/* ---- abstract ---- */
+.intro { margin-top: 18mm; width: 318mm; position: relative; z-index: 2; }
+.intro p + p { margin-top: 5mm; }
+.intro .lede { font-size: 8.4mm; line-height: 1.68; }
+.intro .muted { color: var(--muted); font-size: 7mm; }
+
+/* ---- section heads ---- */
+.sec { margin-top: 18mm; position: relative; z-index: 2; }
+.head { display: flex; align-items: baseline; gap: 7mm; }
+.head h2 { font: 400 17mm/1 var(--f-display); }
+.head span { font: 500 8mm/1 var(--f-body); color: var(--accent); }
+
+/* ---- spells ---- */
+.spells { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8mm; margin-top: 10mm; }
+.card { background: rgba(17, 30, 32, .82); border: .35mm solid var(--line); border-radius: 5mm; overflow: hidden; }
+.card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.card .body { padding: 5mm 5mm 6mm; }
+.card .row { display: flex; align-items: center; gap: 3.5mm; }
+.glyph { width: 15mm; height: 15mm; flex: none; overflow: visible; filter: drop-shadow(0 0 1mm var(--glow)); }
+.glyph path { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.glyph circle { fill: var(--ink); }
+.card h3 { font: 400 9.2mm/1 var(--f-display); }
+.led { margin-left: auto; display: grid; grid-template-columns: repeat(12, 1.15mm); gap: .45mm; padding: 1.6mm; border-radius: 1.6mm; background: #0a3f42; flex: none; }
+.led i { width: 1.15mm; height: 1.15mm; border-radius: 50%; background: rgba(255, 255, 255, .08); }
+.led i.on { background: var(--led); }
+.card dl { margin: 4.5mm 0 0; font-size: 6.1mm; line-height: 1.55; }
+.card dt { font: 500 4.4mm/1.4 var(--f-mono); letter-spacing: .1em; color: var(--faint); text-transform: uppercase; }
+.card dd { margin: 0 0 2.5mm; }
+.card dd:last-child { margin-bottom: 0; }
+
+/* ---- how it works ---- */
+.steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8mm; margin-top: 12mm; position: relative; }
+.steps::before { content: ""; position: absolute; left: 3mm; right: 3mm; top: 3mm; height: .5mm;
+  background: linear-gradient(90deg, rgba(70,182,174,.15), var(--accent), rgba(70,182,174,.15)); }
+.step { position: relative; padding-top: 12mm; }
+.step::before { content: ""; position: absolute; left: 0; top: 0; width: 6.5mm; height: 6.5mm; border-radius: 50%; background: var(--bg); border: .6mm solid var(--accent); }
+.step b { display: block; font: 400 10mm/1 var(--f-display); color: var(--accent); }
+.step strong { display: block; font-weight: 600; font-size: 7mm; margin-top: 3.5mm; line-height: 1.4; }
+.step p { color: var(--muted); font-size: 6.1mm; line-height: 1.6; margin-top: 2.5mm; }
+
+/* ---- bottom row ---- */
+.lower { display: grid; grid-template-columns: 1fr 1fr 1.08fr; gap: 14mm; margin-top: 18mm; position: relative; z-index: 2; }
+.lower h2 { font: 400 13mm/1 var(--f-display); }
+.lower h2 span { display: block; font: 500 6.6mm/1.3 var(--f-body); color: var(--accent); margin-top: 2.5mm; }
+.nums { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm 6mm; margin-top: 9mm; }
+.nums b { display: block; font: 400 17mm/1 var(--f-display); }
+.nums span { display: block; font-size: 5.8mm; line-height: 1.5; color: var(--muted); margin-top: 2mm; }
+.flow { margin-top: 9mm; }
+.node { border: .35mm solid var(--line); background: rgba(17, 30, 32, .82); border-radius: 4mm; padding: 4mm 5mm; }
+.node.mid { border-color: rgba(70, 182, 174, .45); }
+.node strong { font: 400 7.6mm/1.2 var(--f-display); display: block; }
+.node code { font: 400 4.6mm/1.4 var(--f-mono); color: var(--accent); }
+.node p { font-size: 5.6mm; line-height: 1.5; color: var(--muted); margin-top: 1.5mm; }
+.wire { height: 11mm; position: relative; display: flex; align-items: center; padding-left: 14mm; font: 500 4.6mm/1 var(--f-mono); color: var(--accent); }
+.wire::before { content: ""; position: absolute; left: 7mm; top: 1mm; bottom: 1mm; width: .45mm; background: linear-gradient(180deg, var(--line), var(--accent), var(--line)); }
+.hw { display: grid; grid-template-columns: 42mm 1fr; gap: 5mm; margin-top: 9mm; align-items: start; }
+.hw img { width: 42mm; filter: drop-shadow(0 4mm 6mm rgba(0, 0, 0, .5)); }
+.parts { list-style: none; margin: 0; padding: 0; font-size: 5.8mm; line-height: 1.45; }
+.parts li + li { margin-top: 3mm; }
+.parts b { font-family: var(--f-en); font-weight: 600; display: block; }
+.parts span { color: var(--muted); }
+.pins { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5mm; margin-top: 5mm; font: 500 5mm/1.3 var(--f-mono); }
+.pins div { border: .35mm solid var(--line); border-radius: 2.5mm; padding: 2.2mm 3mm; background: rgba(17, 30, 32, .82); }
+.pins em { font-style: normal; color: var(--accent); }
+
+/* ---- footer ---- */
+.foot { position: absolute; left: 34mm; right: 34mm; bottom: 30mm; display: grid; grid-template-columns: 56mm 1fr auto; gap: 9mm; align-items: center; z-index: 2;
+  padding-top: 12mm; border-top: .35mm solid var(--line); }
+.qr { width: 56mm; height: 56mm; border-radius: 3.5mm; overflow: hidden; outline: .6mm solid var(--accent); outline-offset: 1.6mm; }
+.qr svg { display: block; width: 100%; height: 100%; }
+.foot strong { display: block; font-size: 8.4mm; font-weight: 600; line-height: 1.35; }
+.foot .url { font: 500 6mm/1.5 var(--f-mono); color: var(--accent); margin-top: 2mm; display: block; }
+.foot .url + .url { margin-top: 0; color: var(--muted); }
+.team { text-align: right; font-size: 6.2mm; line-height: 1.6; }
+.team .course { font: 400 9mm/1.1 var(--f-display); color: var(--ink); }
+.team ul { list-style: none; margin: 3mm 0 0; padding: 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="poster">
+  <div class="stars" id="stars"></div>
+
+  <div class="hero" aria-hidden="true">
+    <svg class="trace" viewBox="0 0 100 100"><path data-trace="LUMOS"/><path class="core" data-trace="LUMOS"/></svg>
+    <img class="wand" src="wand-cutout.png" alt="">
+  </div>
+
+  <header class="top pad">
+    <p class="eyebrow">Physical Computing Project 2026 - IT KMITL</p>
+    <h1>Spellcast</h1>
+    <p class="tag">ไม้กายสิทธิ์ที่รู้ว่าคุณวาดคาถาอะไร</p>
+    <p class="tag-en">A wand that reads the spell you draw, on the board itself.</p>
+  </header>
+
+  <section class="intro pad">
+    <p class="lede">กดปุ่มค้างแล้ววาดคาถาในอากาศ บอร์ด Arduino UNO R4 WiFi บนไม้จะจำแนกท่าเองด้วย Dynamic Time Warping (DTW) ไม่ต้องพึ่งคลาวด์ จากนั้นก็แสดงไอคอนบน LED matrix และส่งผลผ่าน WiFi ให้โน้ตบุ๊กทำงานตามคาถาทันที</p>
+    <p class="muted">เส้นเรืองแสงบนโปสเตอร์ทุกเส้นคือท่าร่ายจริงที่ไม้บันทึกไว้ตอนฝึก ส่วนไอคอนจุดสีแดงคือภาพเดียวกับที่ LED matrix บนบอร์ดแสดง</p>
+  </section>
+
+  <section class="sec pad">
+    <div class="head"><h2>Five spells</h2><span>5 คาถา กับ 1 เมาส์ไร้สาย</span></div>
+    <div class="spells">
+      <article class="card"><img src="../media/lumos.jpg" alt="">
+        <div class="body"><div class="row"><svg class="glyph" viewBox="0 0 100 100" data-path="LUMOS"></svg><h3>Lumos</h3><div class="led" data-icon="LUMOS"></div></div>
+        <dl><dt>วาด</dt><dd>วงกลมตามเข็มนาฬิกา</dd><dt>ผล</dt><dd>ไฟติด และเสียงโน้ตบุ๊กดังขึ้น 10%</dd></dl></div></article>
+      <article class="card"><img src="../media/nox.jpg" alt="">
+        <div class="body"><div class="row"><svg class="glyph" viewBox="0 0 100 100" data-path="NOX"></svg><h3>Nox</h3><div class="led" data-icon="NOX"></div></div>
+        <dl><dt>วาด</dt><dd>วงกลมทวนเข็มนาฬิกา</dd><dt>ผล</dt><dd>ไฟดับ และเสียงเบาลง 10%</dd></dl></div></article>
+      <article class="card"><img src="../media/leviosa.jpg" alt="">
+        <div class="body"><div class="row"><svg class="glyph" viewBox="0 0 100 100" data-path="LEVIOSA"></svg><h3>Leviosa</h3><div class="led" data-icon="UP"></div></div>
+        <dl><dt>วาด</dt><dd>สะบัดแล้วตวัดลง</dd><dt>ผล</dt><dd>ลูกศรลอยขึ้น และเปิดลิงก์ที่ตั้งไว้บนเว็บ</dd></dl></div></article>
+      <article class="card"><img src="../media/expelliarmus.jpg" alt="">
+        <div class="body"><div class="row"><svg class="glyph" viewBox="0 0 100 100" data-path="EXPELLIARMUS"></svg><h3>Expelliarmus</h3><div class="led" data-icon="BOLT"></div></div>
+        <dl><dt>วาด</dt><dd>ตัว Z ซิกแซก</dd><dt>ผล</dt><dd>สายฟ้าแลบ และเปิดวิดีโอ YouTube</dd></dl></div></article>
+      <article class="card"><img src="../media/accio.jpg" alt="">
+        <div class="body"><div class="row"><svg class="glyph" viewBox="0 0 100 100" data-path="ACCIO"></svg><h3>Accio</h3><div class="led" data-icon="RIGHT"></div></div>
+        <dl><dt>วาด</dt><dd>ตัว V</dd><dt>ผล</dt><dd>ลูกศรพุ่งเข้า และเล่นหรือหยุด YouTube</dd></dl></div></article>
+    </div>
+  </section>
+
+  <section class="sec pad">
+    <div class="head"><h2>How a cast works</h2><span>จากข้อมือถึงคาถา</span></div>
+    <div class="steps">
+      <div class="step"><b>Hold</b><strong>กดปุ่มค้างแล้ววาด</strong><p>บอร์ดบันทึกเฉพาะตอนกดค้าง ปล่อยปุ่มเมื่อไหร่ก็อ่านคาถาทันที</p></div>
+      <div class="step"><b>Sample</b><strong>เก็บค่า 100 ครั้งต่อวินาที</strong><p>MPU6050 วัดการหมุนลงบัฟเฟอร์ FIFO ของตัวเอง WiFi ช้าแค่ไหนก็ไม่ทำให้ข้อมูลหาย</p></div>
+      <div class="step"><b>Trace</b><strong>แปลงเป็นเส้น 32 จุด</strong><p>รวมการหมุนเป็นเส้นที่ปลายไม้วาด เลือกจุดห่างเท่ากัน ความเร็วกับมือสั่นจึงไม่มีผล</p></div>
+      <div class="step"><b>Match</b><strong>เทียบด้วย DTW</strong><p>เทียบกับตัวอย่างที่ฝึกไว้คาถาละ 3 ครั้ง ใกล้อันไหนสุดก็เป็นคาถานั้น ไกลเกินไปก็ fizzle</p></div>
+      <div class="step"><b>Cast</b><strong>บอกโน้ตบุ๊กก่อน</strong><p>ส่ง UDP ผ่าน WiFi ให้โน้ตบุ๊กเริ่มทำงานก่อน แล้ว LED matrix ค่อยแสดงไอคอน</p></div>
+    </div>
+  </section>
+
+  <div class="lower pad">
+    <section>
+      <h2>Results<span>ผลการทดสอบ</span></h2>
+      <div class="nums">
+        <div><b>100%</b><span>ท่าร่ายจำลอง 1,000 ครั้ง จำแนกถูกทั้งหมด</span></div>
+        <div><b>87.8%</b><span>เส้นที่วาดมั่ว ระบบปัดตกเป็น fizzle</span></div>
+        <div><b>100 Hz</b><span>อัตราเก็บค่าไจโรระหว่างร่าย</span></div>
+        <div><b>15</b><span>ตัวอย่างที่ฝึกไว้ เก็บใน EEPROM และสำรองบนโน้ตบุ๊ก</span></div>
+      </div>
+    </section>
+    <section>
+      <h2>The system<span>ไม้ โน้ตบุ๊ก และหน้าเว็บ</span></h2>
+      <div class="flow">
+        <div class="node"><strong>Wand</strong><code>spellcast.ino</code><p>จำแนกคาถาบนบอร์ด และส่งการเคลื่อนไหวแบบสด</p></div>
+        <div class="wire">UDP ผ่าน WiFi</div>
+        <div class="node mid"><strong>Laptop</strong><code>server.py + spells.py</code><p>ปรับเสียง เปิดลิงก์ คุม YouTube ขยับเมาส์ และสำรองการฝึก</p></div>
+        <div class="wire">Server-Sent Events</div>
+        <div class="node"><strong>Web page</strong><code>sim/index.html</code><p>แสดงเส้นที่ไม้วาดแบบเรียลไทม์ คะแนน และ leaderboard</p></div>
+      </div>
+    </section>
+    <section>
+      <h2>Hardware<span>อุปกรณ์และการต่อสาย</span></h2>
+      <div class="hw">
+        <img src="upright-cutout.png" alt="">
+        <ul class="parts">
+          <li><b>Arduino UNO R4 WiFi</b><span>ประมวลผลทั้งหมด มี LED matrix 12×8 และ WiFi ในตัว</span></li>
+          <li><b>GY-521 (MPU6050)</b><span>ไจโรที่ปลายไม้</span></li>
+          <li><b>ปุ่มกด + Passive buzzer</b><span>ปุ่มเดียวคุมทุกอย่าง บัซเซอร์ไม่บังคับ</span></li>
+        </ul>
+      </div>
+      <div class="pins">
+        <div>SDA <em>A4</em></div><div>SCL <em>A5</em></div>
+        <div>Button <em>D12</em></div><div>Buzzer <em>D8</em></div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="foot">
+    <div class="qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41 41" shape-rendering="crispEdges"><path fill="#e6f2f0" d="M0 0h41v41h-41z"/><path stroke="#0b1415" d="M2 2.5h7m2 0h2m2 0h6m2 0h1m3 0h4m1 0h7m-37 1h1m5 0h1m5 0h3m2 0h8m1 0h1m3 0h1m5 0h1m-37 1h1m1 0h3m1 0h1m1 0h2m2 0h3m4 0h3m2 0h1m1 0h2m2 0h1m1 0h3m1 0h1m-37 1h1m1 0h3m1 0h1m2 0h1m4 0h2m1 0h2m5 0h5m1 0h1m1 0h3m1 0h1m-37 1h1m1 0h3m1 0h1m1 0h1m1 0h4m2 0h1m3 0h4m3 0h1m2 0h1m1 0h3m1 0h1m-37 1h1m5 0h1m1 0h1m2 0h1m2 0h2m1 0h1m6 0h1m3 0h1m1 0h1m5 0h1m-37 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-26 1h1m2 0h4m1 0h3m1 0h1m1 0h1m-25 1h1m2 0h1m1 0h1m1 0h1m3 0h1m1 0h1m2 0h1m3 0h5m1 0h1m1 0h1m1 0h2m1 0h1m-33 1h1m2 0h1m2 0h1m1 0h1m3 0h1m1 0h1m1 0h1m1 0h2m1 0h1m2 0h1m2 0h1m1 0h5m-32 1h3m1 0h2m5 0h2m2 0h1m1 0h3m1 0h5m2 0h1m1 0h1m-34 1h1m1 0h1m3 0h1m1 0h1m2 0h1m3 0h1m2 0h1m1 0h1m2 0h1m1 0h4m3 0h2m1 0h1m-36 1h1m1 0h4m1 0h1m4 0h1m2 0h1m3 0h5m3 0h4m1 0h2m1 0h1m-36 1h3m6 0h2m3 0h1m1 0h2m4 0h1m3 0h3m2 0h1m1 0h2m-35 1h2m1 0h1m1 0h3m1 0h1m1 0h1m5 0h1m2 0h4m2 0h1m2 0h1m2 0h3m-36 1h1m2 0h1m1 0h1m2 0h2m1 0h1m1 0h2m1 0h2m1 0h3m5 0h6m1 0h1m-35 1h2m1 0h5m3 0h1m1 0h2m1 0h2m1 0h2m7 0h4m1 0h2m-35 1h2m3 0h1m1 0h3m2 0h1m1 0h2m1 0h1m1 0h2m1 0h1m1 0h2m1 0h2m2 0h2m-33 1h2m4 0h3m1 0h6m2 0h2m1 0h1m1 0h2m1 0h2m2 0h1m2 0h2m-32 1h2m4 0h4m2 0h1m2 0h1m2 0h1m1 0h1m3 0h3m3 0h2m1 0h1m-35 1h1m1 0h5m1 0h1m2 0h4m2 0h4m1 0h1m1 0h2m1 0h2m2 0h2m1 0h1m-37 1h2m1 0h2m2 0h2m2 0h1m4 0h2m2 0h4m1 0h3m4 0h1m-32 1h2m1 0h1m1 0h1m1 0h2m1 0h1m3 0h1m1 0h3m3 0h1m3 0h2m4 0h3m-34 1h1m1 0h2m2 0h2m1 0h3m5 0h3m1 0h1m2 0h1m1 0h4m2 0h1m-34 1h1m4 0h2m1 0h3m1 0h1m1 0h1m1 0h1m1 0h3m2 0h4m2 0h1m3 0h2m-36 1h2m1 0h2m2 0h1m1 0h1m1 0h1m1 0h1m2 0h1m1 0h1m1 0h1m2 0h3m5 0h2m2 0h1m-31 1h5m1 0h2m6 0h2m1 0h2m1 0h1m1 0h1m1 0h1m3 0h1m-32 1h1m1 0h2m2 0h2m2 0h1m3 0h1m4 0h1m4 0h1m3 0h1m2 0h2m1 0h1m-37 1h2m1 0h1m2 0h2m3 0h1m1 0h1m1 0h1m1 0h3m1 0h2m1 0h1m2 0h9m-28 1h2m2 0h1m1 0h4m2 0h2m1 0h1m1 0h2m1 0h1m3 0h2m1 0h1m-36 1h7m2 0h3m3 0h2m1 0h1m1 0h1m2 0h2m1 0h1m1 0h1m1 0h1m1 0h4m-36 1h1m5 0h1m2 0h2m1 0h1m2 0h3m4 0h2m2 0h1m1 0h1m3 0h1m1 0h2m-36 1h1m1 0h3m1 0h1m1 0h1m4 0h1m3 0h1m1 0h1m2 0h3m3 0h9m-37 1h1m1 0h3m1 0h1m2 0h3m3 0h1m3 0h3m4 0h3m1 0h2m3 0h1m-36 1h1m1 0h3m1 0h1m2 0h1m4 0h5m1 0h1m5 0h3m1 0h2m2 0h2m-36 1h1m5 0h1m1 0h3m2 0h2m2 0h1m3 0h1m2 0h1m1 0h2m3 0h1m1 0h3m-36 1h7m2 0h1m1 0h2m1 0h1m1 0h8m3 0h1m1 0h1m2 0h5"/></svg></div>
+    <div>
+      <strong>สแกนดูเว็บไซต์ วิดีโอเดโม และซอร์สโค้ดทั้งหมด</strong>
+      <span class="url">sicout9010.github.io/spellcast-phycom-2026</span>
+      <span class="url">github.com/SICout9010/spellcast-phycom-2026</span>
+    </div>
+    <div class="team"><div class="course">IT KMITL</div><ul id="team"></ul></div>
+  </footer>
+</div>
+
+<script src="../spells.js"></script>
+<script>
+const TEAM = [
+  ["ภคพล ศรนารายณ์", "68070130"],
+  ["ภูมิทอง ไพบูลย์พันธ์", "68070141"],
+  ["ภูริพัฒน์ สุโนภักดิ์", "68070146"],
+  ["สิทธันต์ อารมณ์ประเสริฐ", "68070181"],
+];  // [["Name Surname", "student ID"], ...]: shown bottom right
+
+document.getElementById("team").innerHTML = TEAM.map(([n, id]) => `<li>${n}${id ? ` &nbsp;${id}` : ""}</li>`).join("");
+for (const p of document.querySelectorAll("[data-trace]")) p.setAttribute("d", PATHS[p.dataset.trace]);
+for (const svg of document.querySelectorAll("svg[data-path]")) {
+  const d = PATHS[svg.dataset.path], [x, y] = d.slice(1).split("C")[0].split(" ").map(Number);
+  svg.innerHTML = `<path d="${d}"/><circle cx="${x}" cy="${y}" r="7"/>`;
+}
+for (const el of document.querySelectorAll(".led[data-icon]"))
+  el.innerHTML = ICONS[el.dataset.icon].join("").split("").map(c => `<i${c === "#" ? ' class="on"' : ""}></i>`).join("");
+
+// Starfield with a fixed seed, so every rebuild prints the same sky.
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+let stars = "";
+for (let i = 0; i < 340; i++) {
+  const s = .25 + rnd() ** 3 * 1.1, teal = rnd() < .12;
+  stars += `<i style="left:${(rnd() * 594).toFixed(1)}mm;top:${(rnd() * 841).toFixed(1)}mm;width:${s.toFixed(2)}mm;height:${s.toFixed(2)}mm;opacity:${(.18 + rnd() * .6).toFixed(2)}${teal ? ";background:#7fe0d6" : ""}"></i>`;
+}
+document.getElementById("stars").innerHTML = stars;
+
+// Four-point sparkles along the trace
+const SPARK = '<svg class="spark" viewBox="-1 -1 2 2"><path d="M0-1 .16-.16 1 0 .16.16 0 1-.16.16-1 0-.16-.16Z"/></svg>';
+for (const [x, y, s, o] of [[352, 52, 9, .9], [566, 96, 6, .7], [372, 214, 5, .6], [578, 40, 11, .95], [470, 12, 5, .55], [544, 236, 4, .5]]) {
+  document.querySelector(".poster").insertAdjacentHTML("beforeend", SPARK);
+  const el = document.querySelector(".poster > .spark:last-of-type");
+  Object.assign(el.style, { left: x + "mm", top: y + "mm", width: s + "mm", height: s + "mm", opacity: o, filter: "drop-shadow(0 0 1.4mm rgba(127,224,214,.9))" });
+}
+</script>
+</body>
+</html>

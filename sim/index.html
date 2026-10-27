@@ -1,0 +1,832 @@
+<title>Spellcast Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a workbench. Casting "air" on the left, the spellbook board (teal PCB + red 12x8 LED matrix) on the right. */
+:root {
+  --bg: #e8eeed; --panel: #f6f9f8; --ink: #102628; --muted: #526a6c; --line: #c6d4d2;
+  --pcb: #0d666b; --pcb-deep: #0a5357; --silk: #e3f4f2; --led: #ff3b2f; --led-off: rgba(255, 255, 255, .09);
+  --accent: #0d666b; --accent-ink: #ffffff; --good: #1d7549; --bad: #b42318; --trail: #102628;
+  --ax-x: #8a6a00; --ax-y: #0d666b; --ax-z: #c2366b;
+  --f-display: "IM Fell English SC", "Iowan Old Style", Georgia, serif;
+  --f-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1415; --panel: #111e20; --ink: #dbeae8; --muted: #8fa5a6; --line: #24393b;
+    --pcb: #0b5458; --pcb-deep: #083f42; --silk: #cfe9e6; --led: #ff4a3a; --led-off: rgba(255, 255, 255, .07);
+    --accent: #46b6ae; --accent-ink: #062224; --good: #4cc38a; --bad: #ff6b5e; --trail: #dbeae8;
+    --ax-x: #e0b43c; --ax-y: #46b6ae; --ax-z: #f06292; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1415; --panel: #111e20; --ink: #dbeae8; --muted: #8fa5a6; --line: #24393b;
+  --pcb: #0b5458; --pcb-deep: #083f42; --silk: #cfe9e6; --led: #ff4a3a; --led-off: rgba(255, 255, 255, .07);
+  --accent: #46b6ae; --accent-ink: #062224; --good: #4cc38a; --bad: #ff6b5e; --trail: #dbeae8;
+  --ax-x: #e0b43c; --ax-y: #46b6ae; --ax-z: #f06292; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }  /* also when server.py serves the page, outside the artifact viewer */
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); padding: 0 16px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 20px 40px; display: grid; gap: 20px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, .air:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.label { font: 500 11px/1.2 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+.top h1 { font: 400 clamp(30px, 5vw, 44px)/1 var(--f-display); letter-spacing: .01em; }
+.top p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
+.modes { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--panel); }
+.modes button { border: 0; background: none; color: var(--muted); padding: 6px 14px; border-radius: 999px; }
+.modes button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+.bench { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+.col { display: grid; gap: 14px; min-width: 0; align-content: start; }
+
+.air { position: relative; aspect-ratio: 4 / 3; max-width: 100%; border: 1px solid var(--line); border-radius: 14px; background:
+  radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 1.4px) 0 0 / 22px 22px, var(--panel);
+  touch-action: none; user-select: none; overflow: hidden; }
+.air svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.air polyline { fill: none; stroke: var(--trail); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.air.done polyline { opacity: .45; }
+.air polyline.clean { stroke: var(--accent); stroke-width: 5; opacity: 0; transition: opacity .4s; }
+.air.corrected #trail-line { opacity: .18; }
+.air.corrected polyline.clean { opacity: 1; }
+.air-hint { position: absolute; left: 14px; bottom: 10px; margin: 0; pointer-events: none; }
+.hold { position: absolute; inset: 18%; border: 2px dashed var(--accent); border-radius: 50%; background: none; color: var(--accent);
+  font: 400 26px/1.1 var(--f-display); }
+.hold.on { background: var(--accent); color: var(--accent-ink); border-style: solid; }
+.status { margin: 0; min-height: 1.5em; }
+.status.warn { color: var(--bad); }
+.live-hud { position: absolute; inset: 10px 12px auto 12px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
+  pointer-events: none; font: 500 12px/1.2 var(--f-mono); }
+.chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; font-variant-numeric: tabular-nums; }
+.chip.rec { background: var(--bad); border-color: var(--bad); color: var(--bg); }
+.chip.train { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.air .arrow { stroke: var(--accent); stroke-width: 5; stroke-linecap: round; }
+.air .cursor { fill: var(--accent); }
+.axes { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--muted); }
+.axes select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 1px 4px; }
+
+.guide { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 560px) { .guide { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.spell { border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 4px; background: var(--panel); min-width: 0; }
+.spell.teaching { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.spell svg { width: 100%; aspect-ratio: 1; max-width: 100%; }
+.spell svg .shape { fill: none; stroke: var(--ink); stroke-width: .09; stroke-linecap: round; stroke-linejoin: round; }
+.spell svg .start { fill: var(--accent); }
+.spell svg marker path { fill: var(--ink); }
+.spell h3 { font: 400 15px/1.1 var(--f-display); overflow-wrap: anywhere; }
+.spell .what { font-size: 12px; color: var(--muted); line-height: 1.3; }
+.spell .src { font: 11px/1.2 var(--f-mono); color: var(--muted); }
+.spell button { border: 1px solid var(--line); background: none; color: var(--ink); border-radius: 6px; padding: 3px 6px; font-size: 12px; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.link-btn { border: 0; background: none; color: var(--accent); padding: 0; text-decoration: underline; text-underline-offset: 3px; }
+
+.board { background: linear-gradient(160deg, var(--pcb), var(--pcb-deep)); color: var(--silk); border-radius: 14px; padding: 14px 16px 16px;
+  display: grid; gap: 12px; }
+.board-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font: 500 11px/1.2 var(--f-mono); letter-spacing: .1em; }
+.matrix { display: grid; grid-template-columns: repeat(12, 1fr); gap: 5px; padding: 12px; background: rgba(0, 0, 0, .28); border-radius: 8px;
+  max-width: 340px; width: 100%; justify-self: center; }
+.matrix i { aspect-ratio: 1; border-radius: 2px; background: var(--led-off); }
+.matrix i.on { background: var(--led); box-shadow: 0 0 6px var(--led); }
+.pins { display: flex; flex-wrap: wrap; gap: 6px 14px; font: 11px/1.2 var(--f-mono); }
+.pin::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--led-off);
+  border: 1px solid var(--silk); vertical-align: -1px; }
+.pin.lit::before { background: #ffd23f; box-shadow: 0 0 8px #ffd23f; border-color: #ffd23f; }
+
+.result { display: grid; gap: 2px; }
+.r-spell { font: 400 clamp(30px, 4.5vw, 40px)/1.05 var(--f-display); }
+.r-spell.fizzle { color: var(--muted); }
+.r-meta { color: var(--muted); }
+.r-meta b { color: var(--ink); font-weight: 600; }
+.r-effect { font-size: 14px; }
+.tag { font: 500 10px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--line); border-radius: 4px;
+  padding: 3px 5px; color: var(--muted); vertical-align: 6px; margin-left: 8px; }
+
+figure { margin: 0; display: grid; gap: 8px; }
+.bars { display: grid; gap: 6px; }
+.bar { display: grid; grid-template-columns: 104px minmax(0, 1fr) 40px; gap: 8px; align-items: center; font-size: 13px; }
+.bar .name { font: 12px/1 var(--f-mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.bar .track { position: relative; height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--line) 55%, transparent); }
+.bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--muted); opacity: .55; }
+.bar.win .fill { background: var(--accent); opacity: 1; }
+.bar.win .name { color: var(--ink); font-weight: 500; }
+.bar .val { font: 12px/1 var(--f-mono); text-align: right; color: var(--muted); }
+.marks { position: relative; height: 16px; margin-left: 112px; margin-right: 48px; font: 10px/1 var(--f-mono); color: var(--muted); }
+.marks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.track .tick { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--ink); opacity: .5; }
+.trace svg { width: 100%; height: auto; display: block; }
+.trace .zero { stroke: var(--line); stroke-width: 1; }
+.trace polyline { fill: none; stroke-width: 2; stroke-linejoin: round; }
+.ax-x { stroke: var(--ax-x); } .ax-y { stroke: var(--ax-y); } .ax-z { stroke: var(--ax-z); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 11px/1.2 var(--f-mono); color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 2px; margin-right: 6px; vertical-align: 3px; background: currentColor; }
+.legend .lx { color: var(--ax-x); } .legend .ly { color: var(--ax-y); } .legend .lz { color: var(--ax-z); }
+
+.live { border-top: 1px solid var(--line); padding-top: 18px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 760px) { .live { grid-template-columns: minmax(0, 1fr); } }
+.live h2 { font: 400 24px/1.1 var(--f-display); }
+.player { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.player input { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); min-width: 0; }
+.btn { border: 0; background: var(--accent); color: var(--accent-ink); border-radius: 8px; padding: 7px 14px; font-weight: 500; }
+.btn:disabled { opacity: .45; cursor: default; }
+.links { display: grid; gap: 8px; }
+.link-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.link-row label { font: 400 16px/1.1 var(--f-display); min-width: 7.5em; }
+.link-row input { flex: 1 1 14em; min-width: 0; font: inherit; padding: 6px 10px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--panel); color: var(--ink); }
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+th { font: 500 11px/1.2 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+td.num, th.num { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+.feed .mono { color: var(--muted); }
+footer { color: var(--muted); font-size: 13px; max-width: 75ch; display: grid; gap: 6px; }
+footer p { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .matrix i.on { box-shadow: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Spellcast</h1>
+      <p>Draw a spell in the box, or cast with the real wand when this page comes from the Spellcast server. The same classifier that runs on the wand's UNO R4 decides what you cast, and the board shows what happens.</p>
+    </div>
+    <div class="modes" role="group" aria-label="Input">
+      <button id="mode-draw" aria-pressed="true">Draw</button>
+      <button id="mode-motion" aria-pressed="false">Phone motion</button>
+      <button id="mode-live" aria-pressed="false" hidden>Live wand</button>
+    </div>
+  </header>
+
+  <main class="bench">
+    <section class="col" aria-label="Casting">
+      <div id="air" class="air done" tabindex="0" aria-label="Casting area: hold and draw a spell">
+        <svg id="trail" viewBox="0 0 400 300" aria-hidden="true"><polyline id="trail-line" points=""></polyline>
+          <polyline id="clean-line" class="clean" points=""></polyline>
+          <line id="live-arrow" class="arrow" x1="0" y1="0" x2="0" y2="0" visibility="hidden"></line>
+          <circle id="live-cursor" class="cursor" r="7" cx="-20" cy="-20" visibility="hidden"></circle></svg>
+        <button id="hold" class="hold" hidden>Hold to cast</button>
+        <p class="air-hint label" id="air-hint">Hold and draw a spell</p>
+        <div class="live-hud" id="live-hud" hidden><span class="chip" id="live-state">Ready</span><span class="chip" id="live-dir">still</span></div>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite">Example cast shown. Draw your own spell in the box.</p>
+      <div class="axes" id="axes" hidden>
+        <span>If the arrow goes the wrong way:</span>
+        <label>left–right = gyro <select id="ax-h"><option value="0">x</option><option value="1">y</option><option value="2">z</option></select></label>
+        <label><input type="checkbox" id="ax-hflip"> flip</label>
+        <label>up–down = gyro <select id="ax-v"><option value="0">x</option><option value="1">y</option><option value="2">z</option></select></label>
+        <label><input type="checkbox" id="ax-vflip"> flip</label>
+      </div>
+      <ul class="guide" id="guide"></ul>
+      <div class="tools" id="teach-tools">
+        <span class="label" id="teach-note">Teach = replace a spell with 3 of your own casts</span>
+        <button class="link-btn" id="reset">Reset taught spells</button>
+      </div>
+    </section>
+
+    <section class="col" aria-label="Spellbook board">
+      <div class="board">
+        <div class="board-head"><span>SPELLBOOK · UNO R4 WIFI</span><span>12×8</span></div>
+        <div class="matrix" id="matrix" aria-hidden="true"></div>
+        <div class="pins"><span class="pin" id="pin-light">L LED</span><span>D8 BUZZER (OPTIONAL)</span><span>USB HID</span></div>
+      </div>
+      <div class="result">
+        <div><span id="r-spell" class="r-spell">Lumos</span><span class="tag" id="r-tag">Example</span></div>
+        <div class="r-meta">Score <b class="mono" id="r-score">0</b>/100 · distance <span class="mono" id="r-dist">0.00</span></div>
+        <div class="r-effect" id="r-effect"></div>
+      </div>
+      <figure>
+        <figcaption class="label">How the wand decided: closest match per spell</figcaption>
+        <div class="bars" id="bars"></div>
+        <div class="marks" id="marks"></div>
+      </figure>
+      <figure class="trace">
+        <figcaption class="label">What the wand drew: its path as 32 evenly spaced points</figcaption>
+        <svg viewBox="0 0 320 110" id="trace" aria-label="Gyro trace of the last cast">
+          <line class="zero" x1="0" y1="55" x2="320" y2="55"></line>
+          <polyline class="ax-x" id="tx" points=""></polyline>
+          <polyline class="ax-y" id="ty" points=""></polyline>
+          <polyline class="ax-z" id="tz" points=""></polyline>
+        </svg>
+        <div class="legend"><span class="lx">x roll</span><span class="ly">y pitch</span><span class="lz">z yaw</span></div>
+      </figure>
+    </section>
+  </main>
+
+  <section class="live" id="live" hidden aria-label="Live leaderboard">
+    <div class="col">
+      <h2>Leaderboard</h2>
+      <div class="player">
+        <label class="label" for="player-name">Now casting</label>
+        <input id="player-name" maxlength="20" placeholder="Your name">
+        <button class="btn" id="player-set">Set player</button>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>#</th><th>Player</th><th class="num">Avg</th><th class="num">Best</th><th class="num">Casts</th></tr></thead>
+        <tbody id="lb"></tbody>
+      </table></div>
+    </div>
+    <div class="col">
+      <h2>Recent casts</h2>
+      <ul class="feed" id="feed"></ul>
+      <h2>Wand training</h2>
+      <p class="r-meta" id="training-info">Nothing saved on this laptop yet.</p>
+      <div class="player">
+        <button class="btn" id="training-export">Back up from wand</button>
+        <button class="btn" id="training-import">Load onto wand</button>
+        <a class="link-btn" id="training-download" href="api/training" download="spellcast-training.json" hidden>Download file</a>
+      </div>
+      <h2>Spell links</h2>
+      <p class="r-meta">What the laptop opens when the spell is cast. Clear a box and save to go back to the default in spells.py.</p>
+      <div class="links" id="links"><p class="r-meta">Loading…</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Drawing stands in for the wand: the tip's sideways speed becomes yaw and its up-down speed becomes pitch, which is what the MPU6050 measures when you flick a real wand.</p>
+    <p>Phone motion uses your phone's gyroscope as the wand. It needs a phone with a gyro and an HTTPS address such as your project's GitHub Pages site. Phone casts look different from drawings, so teach each spell first.</p>
+    <p>Served by <span class="mono">server/server.py</span>, this page also posts casts to the leaderboard.</p>
+  </footer>
+</div>
+
+<script>
+// ---- Classifier: a line-for-line port of firmware/spellcast/spell_dtw.h ----
+const SEQ_LEN = 32, AXES = 3, DTW_BAND = 8, REJECT = 0.5, PERFECT = 0.1, PER_SPELL = 3;
+
+// Gyro samples -> the shape of the line the wand drew: add rotation up into a path, take SEQ_LEN points
+// evenly spaced along it (speed, pauses and tremor stop mattering), then centre it and scale it to unit size.
+function prepare(raw) {
+  const mag = g => Math.hypot(g[0], g[1], g[2]);
+  const total = raw.reduce((s, g) => s + mag(g), 0), spacing = total / (SEQ_LEN - 1), out = [];
+  let pos = [0, 0, 0], walked = 0;
+  for (const g of raw) {
+    const step = mag(g);
+    while (out.length < SEQ_LEN && out.length * spacing <= walked + step) {
+      const f = step > 0 ? (out.length * spacing - walked) / step : 0;
+      out.push(pos.map((p, a) => p + f * g[a]));
+    }
+    pos = pos.map((p, a) => p + g[a]);
+    walked += step;
+  }
+  while (out.length < SEQ_LEN) out.push(pos.slice());  // rounding leftovers sit at the end of the path
+  const mean = [0, 1, 2].map(a => out.reduce((s, p) => s + p[a], 0) / SEQ_LEN);
+  let ss = 0;
+  const centred = out.map(p => p.map((v, a) => { const c = v - mean[a]; ss += c * c; return c; }));
+  let rms = Math.sqrt(ss / SEQ_LEN);
+  if (rms < 1e-6) rms = 1;
+  return centred.map(p => p.map(v => v / rms));
+}
+
+function dtw(a, b) {
+  let prev = new Array(SEQ_LEN).fill(Infinity), cur = new Array(SEQ_LEN);
+  for (let i = 0; i < SEQ_LEN; i++) {
+    for (let j = 0; j < SEQ_LEN; j++) {
+      cur[j] = Infinity;
+      if (j < i - DTW_BAND || j > i + DTW_BAND) continue;
+      let d = 0;
+      for (let k = 0; k < AXES; k++) { const e = a[i][k] - b[j][k]; d += e * e; }
+      let best = i === 0 && j === 0 ? 0 : Infinity;
+      if (i > 0) best = Math.min(best, prev[j]);
+      if (j > 0) best = Math.min(best, cur[j - 1]);
+      if (i > 0 && j > 0) best = Math.min(best, prev[j - 1]);
+      cur[j] = Math.sqrt(d) + best;
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return prev[SEQ_LEN - 1] / SEQ_LEN;
+}
+
+function castScore(d) { return Math.max(0, Math.min(100, Math.round(100 * (REJECT - d) / (REJECT - PERFECT)))); }
+
+// ---- Spells and their shapes (same paths as test/test_dtw.cpp) ----
+const SPELLS = [
+  { name: "LUMOS", draw: "Circle, clockwise from the top", effect: "Light on: the built-in L LED and the matrix glow" },
+  { name: "NOX", draw: "Circle, anticlockwise", effect: "Light off: the L LED and the matrix go dark" },
+  { name: "LEVIOSA", draw: "Swish, then flick down", effect: "Levitate: an arrow floats up the LED matrix" },
+  { name: "EXPELLIARMUS", draw: "Zigzag Z", effect: "Zap: a lightning bolt flashes, with a falling tone if the D8 buzzer is fitted" },
+  { name: "ACCIO", draw: "V", effect: "Summon: an arrow slides in; with USE_HID 1 the board also presses → for the next slide" },
+];
+function shape(s) {
+  const p = [];
+  if (s === 0) for (let i = 0; i <= 24; i++) { const a = 2 * Math.PI * i / 24; p.push({ x: Math.sin(a), y: -Math.cos(a) }); }
+  if (s === 1) for (let i = 0; i <= 24; i++) { const a = 2 * Math.PI * i / 24; p.push({ x: -Math.sin(a), y: -Math.cos(a) }); }
+  if (s === 2) { for (let i = 0; i <= 12; i++) { const x = -1 + 2 * i / 12; p.push({ x, y: -0.35 * Math.sin(Math.PI * (x + 1)) }); } p.push({ x: 1.15, y: 0.9 }); }
+  if (s === 3) p.push({ x: -1, y: -1 }, { x: 1, y: -1 }, { x: -1, y: 1 }, { x: 1, y: 1 });
+  if (s === 4) p.push({ x: -1, y: -1 }, { x: 0, y: 1 }, { x: 1, y: -1 });
+  return p;
+}
+function along(p, u) {
+  const acc = [0];
+  for (let i = 1; i < p.length; i++) acc.push(acc[i - 1] + Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y));
+  const target = Math.min(1, Math.max(0, u)) * acc[acc.length - 1];
+  let i = 1;
+  while (i < p.length - 1 && acc[i] < target) i++;
+  const f = (target - acc[i - 1]) / Math.max(acc[i] - acc[i - 1], 1e-6);
+  return { x: p[i - 1].x + f * (p[i].x - p[i - 1].x), y: p[i - 1].y + f * (p[i].y - p[i - 1].y) };
+}
+// A drawn path with uneven speed, in ms timestamps, like a pointer would produce.
+function syntheticPath(s, warp, ms = 800, cx = 200, cy = 150, r = 95) {
+  const pts = [], path = shape(s);
+  for (let t = 0; t <= ms; t += 10) {
+    const v = t / ms, q = along(path, v + warp * Math.sin(2 * Math.PI * v) / (2 * Math.PI));
+    pts.push({ x: cx + r * q.x, y: cy + r * q.y, t });
+  }
+  return pts;
+}
+
+// How people actually draw: each straight stroke speeds up then stops at the corner (minimum-jerk profile).
+const CORNERS = { 2: [12], 3: [1, 2], 4: [1] };  // point indexes of sharp corners per shape
+function strokePath(s, ms, cx = 200, cy = 150, r = 95) {
+  const p = shape(s), cuts = [0, ...(CORNERS[s] || []), p.length - 1], pts = [], durs = [];
+  for (let c = 0; c + 1 < cuts.length; c++) {
+    let len = 0;
+    for (let i = cuts[c] + 1; i <= cuts[c + 1]; i++) len += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y);
+    durs.push(Math.sqrt(len));
+  }
+  const total = durs.reduce((a, b) => a + b, 0);
+  let t0 = 0;
+  durs.forEach((d, c) => {
+    const seg = p.slice(cuts[c], cuts[c + 1] + 1), segMs = ms * d / total;
+    for (let t = 0; t < segMs; t += 10) {
+      const u = t / segMs, q = along(seg, 10 * u ** 3 - 15 * u ** 4 + 6 * u ** 5);
+      pts.push({ x: cx + r * q.x, y: cy + r * q.y, t: t0 + t });
+    }
+    t0 += segMs;
+  });
+  const end = p[p.length - 1];
+  pts.push({ x: cx + r * end.x, y: cy + r * end.y, t: t0 });
+  return pts;
+}
+
+// Pointer path -> gyro trace at 100 Hz: sideways tip speed = yaw (z), up-down = pitch (y), no roll.
+function pathToGyro(pts) {
+  const t0 = pts[0].t, t1 = pts[pts.length - 1].t, n = Math.max(2, Math.round((t1 - t0) / 10) + 1), pos = [];
+  let j = 0;
+  for (let i = 0; i < n; i++) {
+    const t = t0 + (t1 - t0) * i / (n - 1);
+    while (j < pts.length - 2 && pts[j + 1].t < t) j++;
+    const p = pts[j], q = pts[j + 1] || p, f = q.t > p.t ? Math.min(1, Math.max(0, (t - p.t) / (q.t - p.t))) : 0;
+    pos.push({ x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f });
+  }
+  const raw = [];
+  for (let i = 0; i + 1 < pos.length; i++) raw.push([0, -(pos[i + 1].y - pos[i].y) * 100, -(pos[i + 1].x - pos[i].x) * 100]);
+  return raw.map((_, i) => [0, 1, 2].map(k => {  // 5-sample average: the MPU6050's low-pass does this on the wand
+    let s = 0, c = 0;
+    for (let d = -2; d <= 2; d++) if (raw[i + d]) { s += raw[i + d][k]; c++; }
+    return s / c;
+  }));
+}
+
+// ---- Templates: 3 per spell, like the board. Built-in ones for drawing; phone motion starts empty. ----
+const BUILT_IN = SPELLS.flatMap((_, s) => [syntheticPath(s, 0), strokePath(s, 700), strokePath(s, 1100)]
+  .map(path => ({ spell: s, seq: prepare(pathToGyro(path)), mine: false })));
+const KEY = "spellcast.slots.v3";  // bump when prepare() changes: old saved spells don't fit the new format
+let slots = { draw: BUILT_IN.slice(), motion: new Array(SPELLS.length * PER_SPELL).fill(null) };
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+  if (saved && Array.isArray(saved.draw) && Array.isArray(saved.motion)) slots = saved;
+} catch (e) { /* storage blocked: built-ins only */ }
+function saveSlots() { try { localStorage.setItem(KEY, JSON.stringify(slots)); } catch (e) {} }
+
+function classifyAll(seq, list) {
+  const best = SPELLS.map(() => Infinity);
+  for (const t of list) if (t) best[t.spell] = Math.min(best[t.spell], dtw(seq, t.seq));
+  let spell = -1;
+  best.forEach((d, s) => { if (d < (spell < 0 ? Infinity : best[spell])) spell = s; });
+  return { spell, dist: spell < 0 ? Infinity : best[spell], perSpell: best };
+}
+
+// ---- LED matrix ----
+const BITMAPS = {
+  heart: ["............", "..##...##...", ".####.####..", ".#########..", "..#######...", "...#####....", "....###.....", ".....#......"],
+  up: [".....##.....", "....####....", "...######...", "..##.##.##..", ".....##.....", ".....##.....", ".....##.....", ".....##....."],
+  bolt: [".......##...", "......##....", ".....##.....", "....######..", "......##....", ".....##.....", "....##......", "...##......."],
+  right: [".......#....", ".......##...", ".#########..", ".##########.", ".#########..", ".......##...", ".......#....", "............"],
+  full: Array(8).fill("############"), off: Array(8).fill("............"),
+};
+const matrixEl = document.getElementById("matrix"), leds = [];
+for (let i = 0; i < 96; i++) leds.push(matrixEl.appendChild(document.createElement("i")));
+function setFrame(rows, dx = 0, dy = 0) {
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 12; c++) {
+    const rr = r - dy, cc = c - dx, on = rr >= 0 && rr < 8 && cc >= 0 && cc < 12 && rows[rr][cc] === "#";
+    leds[r * 12 + c].classList.toggle("on", on);
+  }
+}
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let anim = 0;
+function play(spell) {
+  cancelAnimationFrame(anim);
+  const plan = {
+    0: { ms: 500, frame: t => setFrame(t < 1 ? BITMAPS.full.map(row => [...row].map(() => Math.random() < t ? "#" : ".").join("")) : BITMAPS.full) },
+    1: { ms: 500, frame: t => setFrame(t < 1 ? BITMAPS.full.map(row => [...row].map(() => Math.random() > t ? "#" : ".").join("")) : BITMAPS.off) },
+    2: { ms: 1500, frame: t => setFrame(BITMAPS.up, 0, t < 1 ? Math.round(8 - 8 * ((t * 2) % 1)) : 0) },
+    3: { ms: 900, frame: t => setFrame(t < 1 && Math.floor(t * 6) % 2 ? BITMAPS.off : BITMAPS.bolt) },
+    4: { ms: 600, frame: t => setFrame(BITMAPS.right, Math.round(-12 + 12 * Math.min(1, t)), 0) },
+    [-1]: { ms: 700, frame: t => setFrame(BITMAPS.off.map(row => [...row].map(() => Math.random() < (1 - t) * 0.3 + 0.03 ? "#" : ".").join(""))) },
+  }[spell];
+  if (reduceMotion) { plan.frame(1); return; }
+  const start = performance.now();
+  const step = now => { const t = (now - start) / plan.ms; plan.frame(Math.min(t, 1)); if (t < 1) anim = requestAnimationFrame(step); };
+  anim = requestAnimationFrame(step);
+}
+
+// ---- Rendering ----
+const $ = id => document.getElementById(id);
+let mode = "draw", teaching = null, live = false, lightOn = false;
+
+function renderGuide() {
+  const guide = $("guide");
+  guide.textContent = "";
+  SPELLS.forEach((sp, s) => {
+    const li = document.createElement("li");
+    li.className = "spell" + (teaching && teaching.spell === s ? " teaching" : "");
+    const p = shape(s), pts = p.map(q => `${q.x.toFixed(2)},${q.y.toFixed(2)}`).join(" ");
+    li.innerHTML = `<svg viewBox="-1.45 -1.45 2.9 2.9" aria-hidden="true"><defs><marker id="m${s}" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L10 5L0 10z"></path></marker></defs>
+      <polyline class="shape" points="${pts}" marker-end="url(#m${s})"></polyline><circle class="start" cx="${p[0].x}" cy="${p[0].y}" r=".16"></circle></svg>`;
+    const h = document.createElement("h3"); h.textContent = sp.name.charAt(0) + sp.name.slice(1).toLowerCase();
+    const what = document.createElement("div"); what.className = "what"; what.textContent = sp.draw;
+    const mine = (slots[mode] || []).slice(s * PER_SPELL, s * PER_SPELL + PER_SPELL).filter(t => t && t.mine).length;
+    const have = (slots[mode] || []).slice(s * PER_SPELL, s * PER_SPELL + PER_SPELL).filter(Boolean).length;
+    const src = document.createElement("div"); src.className = "src";
+    src.textContent = mine ? `taught ×${mine}` : have ? "built-in" : "not taught";
+    const b = document.createElement("button");
+    b.textContent = teaching && teaching.spell === s ? `Cast ${teaching.n + 1} of 3…` : "Teach";
+    b.addEventListener("click", () => startTeach(s));
+    li.append(h, what, ...(mode === "live" ? [] : [src, b]));  // the wand trains on the board itself
+    guide.append(li);
+  });
+}
+
+function renderMarks() {
+  const scale = d => Math.min(100, d / 1.2 * 100);
+  $("marks").innerHTML = `<span style="left:${scale(PERFECT)}%">perfect ${PERFECT}</span><span style="left:${scale(REJECT)}%">fizzle ${REJECT}</span>`;
+  return scale;
+}
+const scaleOf = renderMarks();
+
+function renderResult(seq, res, example) {
+  const ok = res.ok ?? (res.spell >= 0 && res.dist <= REJECT);  // the wand sends its own verdict
+  const bars = $("bars");
+  bars.textContent = "";
+  res.perSpell.forEach((d, s) => {
+    const row = document.createElement("div");
+    row.className = "bar" + (s === res.spell && ok ? " win" : "");
+    const name = document.createElement("span"); name.className = "name"; name.textContent = SPELLS[s].name;
+    const track = document.createElement("span"); track.className = "track";
+    track.innerHTML = `<span class="fill" style="width:${isFinite(d) ? scaleOf(d) : 0}%"></span><span class="tick" style="left:${scaleOf(PERFECT)}%"></span><span class="tick" style="left:${scaleOf(REJECT)}%"></span>`;
+    const val = document.createElement("span"); val.className = "val"; val.textContent = isFinite(d) ? d.toFixed(2) : "–";
+    row.append(name, track, val);
+    bars.append(row);
+  });
+  ["tx", "ty", "tz"].forEach((id, k) => {
+    $(id).setAttribute("points", seq.map((p, i) => `${(i / (SEQ_LEN - 1) * 320).toFixed(1)},${(55 - Math.max(-2.1, Math.min(2.1, p[k])) * 24).toFixed(1)}`).join(" "));
+  });
+  const nameEl = $("r-spell");
+  nameEl.textContent = ok ? SPELLS[res.spell].name.charAt(0) + SPELLS[res.spell].name.slice(1).toLowerCase() : "Fizzled";
+  nameEl.classList.toggle("fizzle", !ok);
+  $("r-tag").hidden = !example;
+  $("r-score").textContent = ok ? res.score ?? castScore(res.dist) : 0;
+  $("r-dist").textContent = isFinite(res.dist) ? res.dist.toFixed(2) : "–";
+  $("r-effect").textContent = ok ? SPELLS[res.spell].effect : `Nothing was closer than ${REJECT}, so the board buzzes low and shows "...".`;
+  if (ok && res.spell <= 1) lightOn = res.spell === 0;
+  $("pin-light").classList.toggle("lit", lightOn);
+  play(ok ? res.spell : -1);
+}
+
+function setStatus(msg, warn = false) { const el = $("status"); el.textContent = msg; el.classList.toggle("warn", warn); }
+
+// ---- A cast, from either input ----
+function handleCast(raw, example = false) {
+  if (raw.length < 25) { setStatus("Too short. Hold and draw the whole shape, about half a second or more.", true); return; }
+  const seq = prepare(raw);
+  if (teaching) {
+    const slot = teaching.spell * PER_SPELL + teaching.n;
+    slots[mode][slot] = { spell: teaching.spell, seq: seq.map(p => p.map(v => +v.toFixed(3))), mine: true };
+    saveSlots();
+    const name = SPELLS[teaching.spell].name;
+    teaching.n++;
+    if (teaching.n === PER_SPELL) { teaching = null; setStatus(`${name} learned. Cast it to test it.`); }
+    else setStatus(`Teaching ${name}: cast ${teaching.n + 1} of 3.`);
+    renderGuide();
+    return;
+  }
+  const res = classifyAll(seq, slots[mode]);
+  if (res.spell < 0) { setStatus("No spells taught for phone motion yet. Press Teach on a spell and cast it 3 times.", true); return; }
+  renderResult(seq, res, example);
+  if (res.dist <= REJECT) showClean(res.spell);
+  if (!example) {
+    const ok = res.dist <= REJECT;
+    setStatus(ok ? `Cast ${SPELLS[res.spell].name}, score ${castScore(res.dist)}.` : "Fizzled. Start at the dot and follow the arrow, or press Teach to make the spell match how you draw it.");
+    if (ok && live) post("api/cast", { spell: SPELLS[res.spell].name, score: castScore(res.dist), src: "sim" }).then(poll);
+  }
+}
+
+function startTeach(s) {
+  if (teaching && teaching.spell === s) { teaching = null; setStatus("Teaching cancelled."); }
+  else { teaching = { spell: s, n: 0 }; setStatus(`Teaching ${SPELLS[s].name}: cast 1 of 3.`); }
+  renderGuide();
+}
+$("reset").addEventListener("click", () => {
+  slots[mode] = mode === "draw" ? BUILT_IN.slice() : new Array(SPELLS.length * PER_SPELL).fill(null);
+  teaching = null;
+  saveSlots();
+  renderGuide();
+  setStatus(mode === "draw" ? "Back to the built-in spell shapes." : "Phone-motion spells cleared.");
+});
+
+// Draw input
+const air = $("air"), line = $("trail-line");
+let pts = null;
+air.addEventListener("pointerdown", e => {
+  if (mode !== "draw") return;
+  const r = air.getBoundingClientRect();
+  $("trail").setAttribute("viewBox", `0 0 ${r.width} ${r.height}`);
+  air.setPointerCapture(e.pointerId);
+  air.classList.remove("done");
+  clearClean();
+  pts = [{ x: e.clientX - r.left, y: e.clientY - r.top, t: e.timeStamp }];
+  line.setAttribute("points", "");
+  $("air-hint").hidden = true;
+});
+air.addEventListener("pointermove", e => {
+  if (!pts) return;
+  const r = air.getBoundingClientRect();
+  const batch = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+  for (const ev of batch.length ? batch : [e]) pts.push({ x: ev.clientX - r.left, y: ev.clientY - r.top, t: ev.timeStamp });
+  line.setAttribute("points", pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "));
+});
+function endDraw() {
+  if (!pts) return;
+  const p = pts; pts = null;
+  air.classList.add("done");
+  if (p.length < 2 || p[p.length - 1].t - p[0].t < 250) { setStatus("Too short. Hold and draw the whole shape, about half a second or more.", true); return; }
+  handleCast(pathToGyro(p));
+}
+air.addEventListener("pointerup", endDraw);
+air.addEventListener("pointercancel", endDraw);
+
+// Phone-motion input: the phone's gyroscope is the wand
+let motionRaw = null, gotMotion = false;
+function onMotion(e) {
+  const r = e.rotationRate;
+  if (!r || r.alpha == null) return;
+  gotMotion = true;
+  if (motionRaw) motionRaw.push([r.beta || 0, r.gamma || 0, r.alpha || 0]);
+}
+async function enableMotion() {
+  try {
+    if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+      if (await DeviceMotionEvent.requestPermission() !== "granted") throw new Error("denied");
+    }
+    window.addEventListener("devicemotion", onMotion);
+  } catch (e) { /* handled by the check below */ }
+  setTimeout(() => {
+    if (gotMotion || mode !== "motion") return;
+    setMode("draw");
+    setStatus("This page can't read a gyroscope here. Open it on a phone from an HTTPS address, such as your GitHub Pages site.", true);
+  }, 1500);
+}
+const hold = $("hold");
+hold.addEventListener("pointerdown", e => { e.preventDefault(); hold.setPointerCapture(e.pointerId); motionRaw = []; hold.classList.add("on"); hold.textContent = "Casting…"; });
+function endHold() {
+  if (!motionRaw) return;
+  const raw = motionRaw; motionRaw = null;
+  hold.classList.remove("on"); hold.textContent = "Hold to cast";
+  handleCast(raw.length > 1 ? raw : []);
+}
+hold.addEventListener("pointerup", endHold);
+hold.addEventListener("pointercancel", endHold);
+
+function setMode(m) {
+  mode = m; teaching = null;
+  clearClean();
+  $("mode-draw").setAttribute("aria-pressed", m === "draw");
+  $("mode-motion").setAttribute("aria-pressed", m === "motion");
+  $("mode-live").setAttribute("aria-pressed", m === "live");
+  hold.hidden = m !== "motion";
+  $("trail").style.visibility = m === "motion" ? "hidden" : "visible";
+  $("air-hint").hidden = m !== "draw";
+  for (const id of ["live-hud", "axes"]) $(id).hidden = m !== "live";
+  for (const id of ["live-arrow", "live-cursor"]) $(id).setAttribute("visibility", m === "live" ? "visible" : "hidden");
+  $("teach-tools").hidden = m === "live";
+  renderGuide();
+}
+$("mode-draw").addEventListener("click", () => { setMode("draw"); setStatus("Draw a spell in the box."); });
+$("mode-motion").addEventListener("click", () => {
+  setMode("motion");
+  setStatus(slots.motion.some(Boolean) ? "Hold the button and swing the phone like a wand." : "Teach each spell first: press Teach, then cast it 3 times with the phone.");
+  enableMotion();
+});
+
+// ---- Live leaderboard, when served by server/server.py ----
+async function post(path, body) {
+  try { return await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); }
+  catch (e) { return null; }
+}
+async function ask(path, okMsg) {  // a button that asks the server to do something, with its error shown
+  const r = await post(path, {});
+  let d = {};
+  try { d = r ? await r.json() : {}; } catch (e) {}
+  setStatus(r && r.ok ? okMsg : d.error || "Couldn't reach the server.", !(r && r.ok));
+}
+// ---- Spell links: the URL each link spell (spells.py's LINKS: Leviosa, Expelliarmus) opens on the laptop ----
+const cap = n => n[0].toUpperCase() + n.slice(1);
+async function loadLinks() {
+  try {
+    const r = await fetch("api/links", { cache: "no-store" });
+    const links = await r.json();
+    if (!r.ok) throw new Error(links.error);
+    renderLinks(links);
+  } catch (e) { $("links").textContent = `Couldn't load the spell links: ${e.message}`; }
+}
+function renderLinks(links) {
+  const box = $("links");
+  box.textContent = "";
+  for (const [spell, url] of Object.entries(links)) {
+    const row = document.createElement("form");
+    row.className = "link-row";
+    const label = document.createElement("label");
+    label.textContent = cap(spell);
+    label.htmlFor = `link-${spell}`;
+    const input = document.createElement("input");
+    Object.assign(input, { type: "url", id: `link-${spell}`, value: url, placeholder: "https://…" });
+    const save = document.createElement("button");
+    save.className = "btn";
+    save.textContent = "Save";
+    row.append(label, input, save);
+    row.addEventListener("submit", async e => {
+      e.preventDefault();
+      const r = await post("api/links", { spell, url: input.value });
+      let d = {};
+      try { d = r ? await r.json() : {}; } catch (err) {}
+      if (r && r.ok) { renderLinks(d); setStatus(`${cap(spell)} now opens ${d[spell]}`); }
+      else setStatus(d.error || "Couldn't reach the server.", true);
+    });
+    box.append(row);
+  }
+}
+$("training-export").addEventListener("click", () => ask("api/training/export", "Asked the wand for its training…"));
+$("training-import").addEventListener("click", () => ask("api/training/import", "Sent to the wand. Its matrix shows LOADED when it's done."));
+async function poll() {
+  try {
+    const r = await fetch("api/state", { cache: "no-store" });
+    if (!r.ok) return;
+    const s = await r.json();
+    if (!Array.isArray(s.leaderboard)) return;
+    if (!live) { live = true; $("live").hidden = false; setInterval(poll, 2000); connectLive(); loadLinks(); }
+    const lb = $("lb"); lb.textContent = "";
+    s.leaderboard.forEach((row, i) => {
+      const tr = document.createElement("tr");
+      [i + 1, row.player, row.avg, row.best, row.casts].forEach((v, k) => {
+        const td = document.createElement("td"); td.textContent = v; if (k !== 1) td.className = "num"; tr.append(td);
+      });
+      lb.append(tr);
+    });
+    if (!s.leaderboard.length) lb.innerHTML = '<tr><td colspan="5">No casts yet. Cast a spell to get on the board.</td></tr>';
+    const feed = $("feed"); feed.textContent = "";
+    s.feed.forEach(c => {
+      const li = document.createElement("li");
+      const time = document.createElement("span"); time.className = "mono"; time.textContent = new Date(c.t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + "  ";
+      li.append(time, `${c.player} cast ${c.spell}, ${c.score} (${c.src})`);
+      feed.append(li);
+    });
+    if (document.activeElement !== $("player-name")) $("player-name").value = s.player === "anon" ? "" : s.player;
+    const tr = s.training;
+    $("training-info").textContent = tr
+      ? `Saved ${tr.saved}: ${tr.count} examples (${tr.spells.map(n => n[0] + n.slice(1).toLowerCase()).join(", ")}).`
+      : "Nothing saved on this laptop yet. The wand backs itself up when a training session ends.";
+    $("training-download").hidden = !tr;
+    $("training-export").disabled = !s.wand;
+    $("training-import").disabled = !tr || !s.wand;
+  } catch (e) { /* no server: the simulator works on its own */ }
+}
+$("player-set").addEventListener("click", async () => {
+  await post("api/player", { name: $("player-name").value });
+  setStatus(`Now casting: ${$("player-name").value.trim() || "anon"}.`);
+  poll();
+});
+
+// ---- Live wand: the board's motion, streamed by server/server.py ----
+const AXES_KEY = "spellcast.axes.v1";
+let axes = { h: 2, hFlip: true, v: 1, vFlip: true };  // same mapping as the drawing simulator: yaw = sideways, pitch = up-down
+try { Object.assign(axes, JSON.parse(localStorage.getItem(AXES_KEY) || "{}")); } catch (e) {}
+let wandSeen = false, liveRec = false, liveRaw = [], liveTrail = [], cursor = { x: 0, y: 0 }, vel = { x: 0, y: 0 };
+// Live line clean-up: subtract the gyro drift learned while the wand is still, ignore tremor under DEAD deg/s,
+// and smooth the rest, so the line follows the hand instead of shaking with it.
+const DEAD = 15;
+let drift = [0, 0, 0], smooth = { x: 0, y: 0 };
+
+// Line correction: once a spell is recognised, draw its clean shape over the wobbly line (like QuickShape).
+function showClean(spell) {
+  const pts = line.getAttribute("points").trim().split(/\s+/).map(p => p.split(",").map(Number)).filter(p => p.length === 2 && isFinite(p[0]) && isFinite(p[1]));
+  if (pts.length < 2 || spell < 0) return;
+  const box = ps => { const xs = ps.map(p => p[0]), ys = ps.map(p => p[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
+    return { cx: (x0 + Math.max(...xs)) / 2, cy: (y0 + Math.max(...ys)) / 2, r: Math.max(Math.max(...xs) - x0, Math.max(...ys) - y0, 1e-6) / 2 }; };
+  const ideal = shape(spell).map(q => [q.x, q.y]), a = box(pts), b = box(ideal);
+  $("clean-line").setAttribute("points", ideal.map(([x, y]) => `${(a.cx + (x - b.cx) / b.r * a.r).toFixed(1)},${(a.cy + (y - b.cy) / b.r * a.r).toFixed(1)}`).join(" "));
+  air.classList.add("corrected");
+}
+function clearClean() { air.classList.remove("corrected"); }
+const DIRS = ["→ right", "↘ down-right", "↓ down", "↙ down-left", "← left", "↖ up-left", "↑ up", "↗ up-right"];
+
+$("ax-h").value = axes.h; $("ax-v").value = axes.v; $("ax-hflip").checked = axes.hFlip; $("ax-vflip").checked = axes.vFlip;
+for (const id of ["ax-h", "ax-v", "ax-hflip", "ax-vflip"]) $(id).addEventListener("change", () => {
+  axes = { h: +$("ax-h").value, v: +$("ax-v").value, hFlip: $("ax-hflip").checked, vFlip: $("ax-vflip").checked };
+  try { localStorage.setItem(AXES_KEY, JSON.stringify(axes)); } catch (e) {}
+});
+
+function toScreen(g) { return { x: (axes.hFlip ? -1 : 1) * g[axes.h], y: (axes.vFlip ? -1 : 1) * g[axes.v] }; }  // deg/s, y down
+
+function onLive(m) {
+  if (!wandSeen) { wandSeen = true; $("mode-live").hidden = false; setMode("live"); setStatus("Wand connected. Hold the button, draw a spell with the tip, release."); }
+  for (let i = 0; i + 2 < m.g.length; i += 3) {
+    const g = [m.g[i], m.g[i + 1], m.g[i + 2]];
+    if (!m.rec && Math.hypot(...g) < 20) drift = drift.map((d, a) => 0.98 * d + 0.02 * g[a]);  // learn drift while still
+    const raw = toScreen(g.map((v, a) => v - drift[a]));
+    const v = Math.hypot(raw.x, raw.y) < DEAD ? { x: 0, y: 0 } : raw;  // tremor dead-zone
+    smooth = { x: 0.6 * smooth.x + 0.4 * v.x, y: 0.6 * smooth.y + 0.4 * v.y };
+    vel = { x: 0.85 * vel.x + 0.15 * v.x, y: 0.85 * vel.y + 0.15 * v.y };  // the arrow moves calmer than the line
+    cursor = { x: 0.97 * cursor.x + smooth.x / 100, y: 0.97 * cursor.y + smooth.y / 100 };  // degrees; drifts back to the centre
+    if (!m.rec) continue;
+    if (!liveRec) { liveRec = true; liveRaw = []; liveTrail = [{ x: 0, y: 0 }]; air.classList.remove("done"); clearClean(); }
+    liveRaw.push(g);
+    const last = liveTrail[liveTrail.length - 1];
+    liveTrail.push({ x: last.x + smooth.x / 100, y: last.y + smooth.y / 100 });
+  }
+  if (!m.rec && liveRec) { liveRec = false; air.classList.add("done"); }
+  lightOn = !!m.light;
+  $("pin-light").classList.toggle("lit", lightOn);
+  document.querySelectorAll("#guide .spell").forEach((li, i) => li.classList.toggle("teaching", m.teach === i));
+  if (mode === "live") drawLive(m);
+}
+
+function drawLive(m) {
+  const r = air.getBoundingClientRect(), W = r.width, H = r.height;
+  $("trail").setAttribute("viewBox", `0 0 ${W} ${H}`);
+  if (liveTrail.length > 1) {  // smooth the path (5-point average), then fit it into the box
+    const pts = liveTrail.map((_, i) => {
+      let x = 0, y = 0, n = 0;
+      for (let d = -2; d <= 2; d++) { const q = liveTrail[i + d]; if (q) { x += q.x; y += q.y; n++; } }
+      return { x: x / n, y: y / n };
+    });
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const s = Math.min(W * 0.7 / Math.max(x1 - x0, 20), H * 0.7 / Math.max(y1 - y0, 20));
+    line.setAttribute("points", pts.map(p => `${(W / 2 + (p.x - (x0 + x1) / 2) * s).toFixed(1)},${(H / 2 + (p.y - (y0 + y1) / 2) * s).toFixed(1)}`).join(" "));
+  }
+  const px = W / 2 + Math.max(-1, Math.min(1, cursor.x / 60)) * W * 0.4, py = H / 2 + Math.max(-1, Math.min(1, cursor.y / 60)) * H * 0.4;
+  const speed = Math.hypot(vel.x, vel.y), len = Math.min(90, speed / 4);
+  $("live-cursor").setAttribute("cx", px.toFixed(1));
+  $("live-cursor").setAttribute("cy", py.toFixed(1));
+  const arrow = $("live-arrow");
+  arrow.setAttribute("x1", px.toFixed(1)); arrow.setAttribute("y1", py.toFixed(1));
+  arrow.setAttribute("x2", (px + (speed ? vel.x / speed : 0) * len).toFixed(1));
+  arrow.setAttribute("y2", (py + (speed ? vel.y / speed : 0) * len).toFixed(1));
+  $("live-dir").textContent = speed < 40 ? "still" : `${DIRS[(Math.round(Math.atan2(vel.y, vel.x) / (Math.PI / 4)) + 8) % 8]} · ${Math.round(speed)}°/s`;
+  const state = $("live-state");
+  state.textContent = m.lost ? "Wand sensor lost: check the GY-521 wires"
+    : m.mouse ? "Mouse mode · triple-click to leave"
+    : m.teach >= 0 ? `Training ${SPELLS[m.teach].name} ${m.taught + 1}/3` : m.rec ? "Casting…" : "Ready";
+  state.classList.toggle("rec", m.lost === 1 || (m.rec === 1 && m.teach < 0));
+  state.classList.toggle("train", m.teach >= 0 || m.mouse === 1);
+}
+
+function onWandCast(c) {
+  if (c.src !== "wand") return;  // simulator casts are already on screen
+  const per = SPELLS.map((_, i) => c.d && c.d[i] >= 0 ? c.d[i] / 1000 : Infinity);
+  const ok = c.spell !== "FIZZLE", best = per.indexOf(Math.min(...per));
+  const spell = ok ? SPELLS.findIndex(s => s.name === c.spell) : best;
+  if (mode !== "live") setMode("live");
+  renderResult(prepare(liveRaw.length > 1 ? liveRaw : [[0, 0, 0], [0, 0, 0]]), { spell, dist: per[spell], perSpell: per, ok, score: c.score }, false);
+  if (ok) showClean(spell);
+  setStatus(ok ? `${c.player} cast ${c.spell}, score ${c.score}.` : "Fizzled: no spell was close enough. Try again, or retrain it (hold the button 2 s without moving).");
+}
+
+function connectLive() {
+  const es = new EventSource("api/live");
+  es.onmessage = e => {
+    let m;
+    try { m = JSON.parse(e.data); } catch (err) { return; }
+    if (m.type === "live") onLive(m);
+    else if (m.type === "cast") { onWandCast(m); poll(); }
+    else if (m.type === "click") setStatus(`Mouse: ${m.click === "double" ? "double click" : m.click + " click"}.`);
+    else if (m.type === "training") { setStatus(`Training backed up to the laptop: ${m.count} examples (${m.saved}).`); poll(); }
+  };
+}
+$("mode-live").addEventListener("click", () => { setMode("live"); setStatus("Hold the button on the wand, draw a spell with the tip, release."); });
+
+// ---- First frame: an example cast, so the board shows a working state ----
+renderGuide();
+const example = syntheticPath(0, 0.25);
+line.setAttribute("points", example.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "));
+handleCast(pathToGyro(example), true);
+poll();
+</script>

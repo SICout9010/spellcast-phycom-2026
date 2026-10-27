@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spellcast</title>
+<meta name="description" content="ไม้กายสิทธิ์ที่รู้ว่าคุณวาดคาถาอะไรในอากาศ จำแนกท่าบน Arduino UNO R4 WiFi แล้วสั่งโน้ตบุ๊กให้ทำงาน Physical Computing Project 2026 - IT KMITL">
+<meta property="og:title" content="Spellcast">
+<meta property="og:description" content="วาดคาถาในอากาศ ไม้จะรู้เองว่าเป็นคาถาอะไร แล้วสั่งโน้ตบุ๊กของคุณให้ทำงานทันที">
+<meta property="og:image" content="media/wand-table.jpg">
+<meta name="theme-color" content="#0b1415">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1415'/%3E%3Cpath d='M7 25 L22 10' stroke='%23dbeae8' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='8' r='3' fill='%2346b6ae'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="preload" as="image" href="media/wand-cutout.webp">
+<style>
+/* Same tokens as the project's own web page (sim/index.html, dark theme), so the site and the app look like one thing.
+   One accent (PCB teal). LED red only ever means "the LED matrix". Radii: media and panels 14px, buttons and tabs pill. */
+:root {
+  color-scheme: dark;
+  --bg: #0b1415; --bg-2: #0d191b; --panel: #111e20; --panel-2: #152427;
+  --ink: #dbeae8; --muted: #8fa5a6; --faint: #5f7677; --line: #24393b;
+  --accent: #46b6ae; --accent-ink: #062224; --glow: rgba(70, 182, 174, .42);
+  --led: #ff4a3a; --led-off: rgba(255, 255, 255, .07);
+  --f-display: "IM Fell English SC", "IBM Plex Sans Thai", Georgia, serif;
+  --f-body: "Instrument Sans", "IBM Plex Sans Thai", system-ui, sans-serif;
+  --f-thai: "IBM Plex Sans Thai", "Instrument Sans", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --r: 14px;
+  --ease: cubic-bezier(.16, 1, .3, 1);
+  --wrap: 1240px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 17px/1.75 var(--f-body); -webkit-font-smoothing: antialiased; }
+/* night sky: fixed, so it never repaints while scrolling */
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(1px 1px at 12% 18%, rgba(219,234,232,.5), transparent 60%),
+    radial-gradient(1px 1px at 68% 9%, rgba(219,234,232,.35), transparent 60%),
+    radial-gradient(1.5px 1.5px at 84% 34%, rgba(70,182,174,.55), transparent 60%),
+    radial-gradient(1px 1px at 33% 72%, rgba(219,234,232,.3), transparent 60%),
+    radial-gradient(1px 1px at 91% 81%, rgba(219,234,232,.35), transparent 60%),
+    radial-gradient(1.5px 1.5px at 7% 58%, rgba(70,182,174,.4), transparent 60%),
+    radial-gradient(900px 600px at 78% -10%, rgba(70,182,174,.10), transparent 70%),
+    radial-gradient(700px 500px at -10% 40%, rgba(70,182,174,.05), transparent 70%); }
+img, video { display: block; max-width: 100%; height: auto; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:hover { color: var(--ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+[hidden] { display: none !important; }
+.wrap { width: min(var(--wrap), 100% - 32px); margin-inline: auto; }
+.thai, [lang="th"] { font-family: var(--f-thai); line-height: 1.85; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 400; margin: 0; letter-spacing: .01em; }
+h2 { font-size: clamp(2.1rem, 4.4vw, 3.4rem); line-height: 1.25; }
+h3 { font-size: 1.6rem; line-height: 1.1; }
+p { margin: 0; }
+.lead { color: var(--muted); max-width: 62ch; margin-top: 16px; }
+section { padding: clamp(72px, 10vw, 128px) 0; }
+
+/* ---------- nav ---------- */
+.nav { position: sticky; top: 0; z-index: 20; background: rgba(11, 20, 21, .78); backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%); border-bottom: 1px solid rgba(36, 57, 59, .7); }
+.nav .wrap { height: 64px; display: flex; align-items: center; gap: 28px; }
+.brand { font-family: var(--f-display); font-size: 1.45rem; color: var(--ink); text-decoration: none; letter-spacing: .02em; }
+.nav-links { display: flex; gap: 22px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
+.nav-links::-webkit-scrollbar { display: none; }
+.nav-links a { color: var(--muted); text-decoration: none; font-size: 15px; white-space: nowrap; transition: color .2s; }
+.nav-links a:hover, .nav-links a.on { color: var(--ink); }
+
+/* ---------- buttons ---------- */
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 22px; border-radius: 999px; font: 500 16px/1 var(--f-body);
+  text-decoration: none; white-space: nowrap; cursor: pointer; border: 1px solid transparent; transition: transform .25s var(--ease), background .25s, color .25s, border-color .25s; }
+.btn i { font-size: 19px; }
+.btn:active { transform: scale(.98); }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { background: #5ccac2; color: var(--accent-ink); transform: translateY(-1px); }
+.btn-ghost { border-color: var(--line); color: var(--ink); background: rgba(17, 30, 32, .6); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--ink); transform: translateY(-1px); }
+.btn-sm { height: 38px; padding: 0 16px; font-size: 14px; }
+
+/* ---------- hero ---------- */
+.hero { padding: clamp(32px, 6vw, 72px) 0 clamp(56px, 8vw, 96px); }
+.hero .wrap { display: grid; grid-template-columns: 1fr 1.08fr; gap: clamp(24px, 4vw, 64px); align-items: center; min-height: min(calc(100dvh - 64px - 120px), 760px); }
+.eyebrow { font: 500 13px/1 var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.hero h1 { font-size: clamp(4.2rem, 10.5vw, 8.6rem); line-height: .92; margin-top: 22px; }
+.hero .sub { font-size: clamp(1.15rem, 1.8vw, 1.4rem); color: var(--muted); max-width: 30ch; margin-top: 22px; line-height: 1.5; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+.hero-art { position: relative; aspect-ratio: 1 / .9; }
+.hero-art .trace { position: absolute; right: 0; top: 0; width: 66%; overflow: visible; filter: drop-shadow(0 0 6px var(--glow)) drop-shadow(0 0 18px rgba(70,182,174,.25)); }
+.trace path { fill: none; stroke: var(--accent); stroke-width: 1.15; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+.trace circle { fill: #eafffb; }
+.hero-art .wand { position: absolute; left: -4%; bottom: 4%; width: 96%; transform: rotate(-9deg); filter: drop-shadow(0 30px 40px rgba(0, 0, 0, .55)); }
+.trace-cap { position: absolute; right: 0; bottom: -8px; text-align: right; font-size: 13px; color: var(--faint); }
+.trace-cap b { color: var(--muted); font-weight: 500; }
+
+/* entrance */
+@media (prefers-reduced-motion: no-preference) {
+  .rise { opacity: 0; transform: translateY(18px); animation: rise .9s var(--ease) forwards; animation-delay: calc(var(--i, 0) * 90ms + 80ms); }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .hero-art .wand { animation: float 7s ease-in-out infinite; }
+  @keyframes float { 50% { transform: rotate(-9deg) translateY(-10px); } }
+  .reveal { opacity: 0; transform: translateY(26px); transition: opacity .9s var(--ease), transform .9s var(--ease); transition-delay: calc(var(--i, 0) * 70ms); }
+  .reveal.in { opacity: 1; transform: none; }
+}
+
+/* ---------- abstract ---------- */
+.abstract { border-top: 1px solid var(--line); }
+.abstract-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(32px, 5vw, 80px); margin-top: 40px; }
+.abstract-grid h3 { font-size: 1.25rem; color: var(--accent); margin-bottom: 14px; }
+.abstract-grid h3.thai { font-family: var(--f-thai); font-weight: 600; font-size: 1.1rem; letter-spacing: 0; }
+.abstract-grid p + p { margin-top: 14px; }
+.abstract-grid .en p { color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 64px; border-top: 1px solid var(--line); }
+.stat { padding: 26px 24px 0 0; }
+.stat + .stat { padding-left: 24px; border-left: 1px solid var(--line); }
+.stat b { display: block; font: 400 clamp(2rem, 3.6vw, 2.9rem)/1 var(--f-display); color: var(--ink); }
+.stat span { display: block; color: var(--muted); font-size: 15px; margin-top: 10px; max-width: 24ch; }
+
+/* ---------- spells (bento) ---------- */
+.bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: 22px; margin-top: 48px; align-items: start; }
+.spell { grid-column: span 5; }
+.spell.wide { grid-column: span 7; }
+.clip { position: relative; border-radius: var(--r); overflow: hidden; background: var(--panel); border: 1px solid var(--line); aspect-ratio: 16 / 9; }
+.clip video, .clip img { width: 100%; height: 100%; object-fit: cover; }
+.spell-head { display: flex; align-items: center; gap: 16px; margin-top: 18px; }
+.glyph { width: 52px; height: 52px; flex: none; overflow: visible; }
+.glyph path { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.glyph circle { fill: var(--ink); }
+.spell-head h3 { font-size: 1.75rem; }
+.spell-head .draw { color: var(--muted); font-size: 15px; margin-top: 2px; }
+.led { margin-left: auto; display: grid; grid-template-columns: repeat(12, 5px); gap: 2px; padding: 7px; border-radius: 8px; background: #0a3f42; flex: none; }
+.led i { width: 5px; height: 5px; border-radius: 50%; background: var(--led-off); }
+.led i.on { background: var(--led); box-shadow: 0 0 4px rgba(255, 74, 58, .8); }
+.effects { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 16px 0 0; font-size: 15px; }
+.effects dt { font: 500 12px/1.9 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.effects dd { margin: 0; color: var(--ink); }
+
+/* ---------- demo ---------- */
+.demo-frame { margin-top: 40px; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--panel); aspect-ratio: 16 / 9; position: relative; }
+.demo-frame video, .demo-frame iframe, .demo-frame img { width: 100%; height: 100%; object-fit: cover; border: 0; }
+.yt-play { position: absolute; inset: 0; display: grid; place-items: center; background: none; border: 0; cursor: pointer; padding: 0; }
+.yt-play img { position: absolute; inset: 0; }
+.yt-play span { position: relative; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font-size: 34px; transition: transform .3s var(--ease); }
+.yt-play:hover span { transform: scale(1.06); }
+.demo-cap { color: var(--muted); font-size: 15px; margin-top: 14px; }
+
+/* ---------- how it works ---------- */
+.how-grid { display: grid; grid-template-columns: 5fr 7fr; gap: clamp(32px, 6vw, 96px); margin-top: 48px; align-items: start; }
+.how-media { position: sticky; top: 96px; }
+.how-media img { border-radius: var(--r); border: 1px solid var(--line); width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
+.how-media p { color: var(--faint); font-size: 14px; margin-top: 12px; }
+.steps { list-style: none; margin: 0; padding: 0; }
+.steps li { display: grid; grid-template-columns: 112px 1fr; gap: 20px; padding: 30px 0; }
+.steps li + li { border-top: 1px solid var(--line); }
+.steps li:first-child { padding-top: 6px; }
+.steps b { font: 400 1.85rem/1 var(--f-display); color: var(--accent); }
+.steps p { color: var(--muted); }
+.steps p strong { color: var(--ink); font-weight: 500; }
+.controls { margin-top: clamp(72px, 9vw, 112px); }
+.controls h3 { font-size: clamp(1.7rem, 3vw, 2.3rem); }
+.ctrl-row { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 32px; }
+.ctrl { padding: 0 24px; border-left: 1px solid var(--line); }
+.ctrl:first-child { padding-left: 0; border-left: 0; }
+.ctrl kbd { display: block; font: 600 15px/1.4 var(--f-body); color: var(--ink); letter-spacing: .04em; }
+.ctrl kbd i { color: var(--accent); font-size: 22px; display: block; margin-bottom: 14px; }
+.ctrl p { color: var(--muted); font-size: 15px; margin-top: 10px; }
+
+/* ---------- system flow ---------- */
+.system { background: linear-gradient(180deg, transparent, var(--bg-2) 18%, var(--bg-2) 82%, transparent); }
+.flow { display: grid; grid-template-columns: 1fr 64px 1.25fr 64px 1fr; align-items: stretch; margin-top: 48px; }
+.node { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 26px; }
+.node h3 { font-size: 1.55rem; }
+.node .file { display: block; font: 400 13px/1.5 var(--f-mono); color: var(--accent); margin-top: 6px; }
+.node ul { margin: 18px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 15px; }
+.node li { padding-left: 18px; position: relative; }
+.node li + li { margin-top: 8px; }
+.node li::before { content: ""; position: absolute; left: 0; top: .72em; width: 8px; height: 1px; background: var(--faint); }
+.node.mid { background: var(--panel-2); border-color: rgba(70, 182, 174, .35); }
+.link { display: grid; place-items: center; position: relative; }
+.link::before { content: ""; position: absolute; left: 6px; right: 6px; top: 50%; height: 1px; background: linear-gradient(90deg, var(--line), var(--accent), var(--line)); }
+.link span { position: relative; font: 500 11px/1.3 var(--f-mono); color: var(--accent); background: var(--bg-2); padding: 4px 2px; text-align: center; letter-spacing: .04em; }
+
+/* ---------- hardware ---------- */
+.hw-grid { display: grid; grid-template-columns: 7fr 5fr; gap: clamp(32px, 5vw, 72px); margin-top: 48px; align-items: start; }
+.collage { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.collage img { width: 100%; border-radius: var(--r); border: 1px solid var(--line); object-fit: cover; }
+.collage .big { grid-column: span 2; aspect-ratio: 4 / 3; }
+.collage .tall { aspect-ratio: 3 / 4; }
+.spec h3 { font-size: 1.5rem; }
+.spec h3 + * { margin-top: 18px; }
+.parts { list-style: none; margin: 0; padding: 0; }
+.parts li { padding: 14px 0; border-top: 1px solid var(--line); }
+.parts li:last-child { border-bottom: 1px solid var(--line); }
+.parts b { font-weight: 600; }
+.parts span { display: block; color: var(--muted); font-size: 15px; }
+.pins { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+.pin { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.pin small { display: block; color: var(--faint); font-size: 12px; }
+.pin span { font: 500 15px/1.5 var(--f-mono); }
+.pin span em { font-style: normal; color: var(--accent); }
+.spec .note { color: var(--muted); font-size: 15px; margin-top: 16px; }
+.spec .gap { margin-top: 44px; }
+
+/* ---------- code ---------- */
+.code-shell { margin-top: 40px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); overflow: hidden; }
+.tabs { display: flex; gap: 6px; padding: 12px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: thin; }
+.tab { flex: none; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid transparent; background: none; color: var(--muted); font: 500 14px/1 var(--f-body); cursor: pointer; transition: color .2s, background .2s, border-color .2s; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { background: var(--panel-2); color: var(--ink); border-color: var(--line); }
+.code-bar { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.code-bar .path { font: 400 14px/1.4 var(--f-mono); color: var(--accent); }
+.code-bar .what { color: var(--muted); font-size: 14px; }
+.code-bar .acts { margin-left: auto; display: flex; gap: 8px; }
+.code-body { position: relative; max-height: 72vh; overflow: auto; background: #0c1718; }
+.code-body pre { margin: 0; padding: 20px 22px; font: 400 13.5px/1.65 var(--f-mono); tab-size: 2; color: #c9dbd9; }
+.code-body code { font: inherit; }
+.skeleton { padding: 22px; }
+.skeleton i { display: block; height: 11px; border-radius: 6px; margin: 0 0 13px; background: linear-gradient(90deg, var(--panel-2) 25%, #1d3134 50%, var(--panel-2) 75%); background-size: 200% 100%; }
+@media (prefers-reduced-motion: no-preference) { .skeleton i { animation: shimmer 1.4s linear infinite; } @keyframes shimmer { to { background-position: -200% 0; } } }
+.code-error { padding: 40px 22px; color: var(--muted); }
+.hljs-comment, .hljs-quote { color: #719190; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-meta .hljs-keyword { color: #7fd6cd; }
+.hljs-built_in, .hljs-type, .hljs-class .hljs-title { color: #9cc7ff; }
+.hljs-string, .hljs-attr-value, .hljs-template-string { color: #e7c48f; }
+.hljs-number, .hljs-literal { color: #f39b8a; }
+.hljs-title, .hljs-title.function_ { color: #e9f5f3; }
+.hljs-meta { color: #8fa5a6; }
+.hljs-attr, .hljs-attribute, .hljs-name, .hljs-tag { color: #7fd6cd; }
+.hljs-params, .hljs-variable { color: #c9dbd9; }
+.run { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 40px; }
+.run div { border-top: 1px solid var(--line); padding-top: 18px; }
+.run b { font-weight: 600; }
+.run p { color: var(--muted); font-size: 15px; margin-top: 6px; }
+.run code { display: block; margin-top: 12px; font: 400 13px/1.5 var(--f-mono); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; overflow-x: auto; white-space: nowrap; }
+
+/* ---------- poster ---------- */
+.poster-grid { display: grid; grid-template-columns: 5fr 7fr; gap: clamp(32px, 6vw, 96px); align-items: center; }
+.poster-thumb { border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .7), 0 0 0 1px rgba(70, 182, 174, .08); aspect-ratio: 594 / 841; background: var(--panel); }
+.poster-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.poster-grid .ctas { margin-top: 28px; }
+
+/* ---------- footer ---------- */
+footer { border-top: 1px solid var(--line); padding: 56px 0 64px; }
+footer .wrap { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: end; }
+.team { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px 32px; }
+.team li { font-size: 16px; }
+.team span { color: var(--muted); font: 400 14px var(--f-mono); margin-left: 8px; }
+footer .small { color: var(--faint); font-size: 14px; margin-top: 18px; }
+footer .brand { font-size: 2rem; }
+
+/* ---------- small screens ---------- */
+@media (max-width: 960px) {
+  .flow { grid-template-columns: 1fr; }
+  .link { height: 56px; }
+  .link::before { left: 50%; right: auto; top: 6px; bottom: 6px; width: 1px; height: auto; background: linear-gradient(180deg, var(--line), var(--accent), var(--line)); }
+  .ctrl-row { grid-template-columns: 1fr 1fr; gap: 32px 0; }
+  .ctrl:nth-child(3) { padding-left: 0; border-left: 0; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .stat:nth-child(3) { padding-left: 0; border-left: 0; }
+  .run { grid-template-columns: 1fr; }
+}
+@media (max-width: 767px) {
+  body { font-size: 16px; }
+  .nav .wrap { gap: 16px; }
+  .nav-links { gap: 16px; }
+  .nav .btn { display: none; }
+  .hero .wrap, .abstract-grid, .how-grid, .hw-grid, .poster-grid, footer .wrap { grid-template-columns: 1fr; }
+  .hero .wrap { min-height: 0; }
+  .hero-art { max-width: 520px; width: 100%; margin-inline: auto; }
+  .bento { grid-template-columns: 1fr; gap: 44px; }
+  .spell, .spell.wide { grid-column: auto; }
+  .how-media { position: static; }
+  .how-media img { aspect-ratio: 4 / 3; }
+  .steps li { grid-template-columns: 1fr; gap: 8px; }
+  .ctrl-row { grid-template-columns: 1fr; gap: 24px; }
+  .ctrl { padding: 0; border-left: 0; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .stat, .stat + .stat { padding: 20px 12px 0 0; border-left: 0; }
+  .pins { grid-template-columns: 1fr; }
+  .code-bar .acts { margin-left: 0; }
+  .poster-thumb { max-width: 380px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="ส่วนต่าง ๆ ของหน้า">
+  <div class="wrap">
+    <a class="brand" href="#top">Spellcast</a>
+    <div class="nav-links">
+      <a href="#abstract">บทคัดย่อ</a>
+      <a href="#spells">คาถา</a>
+      <a href="#how">หลักการทำงาน</a>
+      <a href="#hardware">ฮาร์ดแวร์</a>
+      <a href="#code">โค้ด</a>
+      <a href="#poster">โปสเตอร์</a>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="https://github.com/SICout9010/spellcast-phycom-2026"><i class="ph ph-github-logo"></i>GitHub</a>
+  </div>
+</nav>
+
+<main id="top">
+  <header class="hero">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow rise" style="--i:0">Physical Computing Project 2026 - IT KMITL</p>
+        <h1 class="rise" style="--i:1">Spellcast</h1>
+        <p class="sub rise" style="--i:2">วาดคาถาในอากาศ ไม้จะรู้เองว่าเป็นคาถาอะไรด้วย Arduino บนตัวไม้ แล้วสั่งโน้ตบุ๊กของคุณให้ทำงานทันที</p>
+        <div class="ctas rise" style="--i:3">
+          <a class="btn btn-primary" href="#demo"><i class="ph ph-play"></i>ดูวิดีโอเดโม</a>
+          <a class="btn btn-ghost" href="#code"><i class="ph ph-code"></i>อ่านโค้ด</a>
+        </div>
+      </div>
+      <div class="hero-art rise" style="--i:2">
+        <svg class="trace" viewBox="0 0 100 100" aria-hidden="true"><path id="trace-path" pathLength="1"/><circle id="trace-tip" r="1.7" cx="-10" cy="-10"/></svg>
+        <img class="wand" src="media/wand-cutout.webp" width="1400" height="748" alt="ไม้กายสิทธิ์ Spellcast: บอร์ด Arduino UNO R4 WiFi ในเคสใสติดบนไม้ มีเซนเซอร์ GY-521 ที่ปลาย และปุ่มกดตรงด้ามจับ">
+        <p class="trace-cap" aria-hidden="true">ท่า <b id="trace-name">Lumos</b> ของจริงที่ไม้บันทึกไว้ตอนฝึก</p>
+      </div>
+    </div>
+  </header>
+
+  <section class="abstract" id="abstract">
+    <div class="wrap">
+      <h2 class="reveal">บทคัดย่อ</h2>
+      <div class="abstract-grid">
+        <div class="reveal" lang="th">
+          <p>Spellcast คือไม้กายสิทธิ์ที่รู้ว่าผู้ถือวาดคาถาอะไรในอากาศ แล้วสั่งงานคอมพิวเตอร์ตามคาถานั้น ตัวไม้ใช้บอร์ด Arduino UNO R4 WiFi เซนเซอร์ GY-521 (MPU6050) ที่ปลายไม้ และปุ่มกดหนึ่งปุ่ม</p>
+          <p>ระหว่างที่กดปุ่มค้าง เซนเซอร์จะวัดการหมุนของไม้ 100 ครั้งต่อวินาที บอร์ดรวมค่าที่ได้เป็นเส้นทางที่ปลายไม้ลากผ่าน เลือก 32 จุดที่ห่างเท่า ๆ กันตามเส้น แล้วปรับตำแหน่งกับขนาดให้เป็นมาตรฐาน จะร่ายเร็วหรือช้า มือสั่นหรือไม่ ก็ไม่มีผล ที่เหลือคือรูปร่างของเส้นอย่างเดียว จากนั้นบอร์ดเทียบรูปร่างนี้กับตัวอย่างที่ฝึกไว้คาถาละ 3 ครั้งด้วย Dynamic Time Warping (DTW) โดยคำนวณบนบอร์ดเองทั้งหมด ไม่ต้องส่งข้อมูลไปคลาวด์</p>
+          <p>พอปล่อยปุ่ม LED matrix ก็แสดงไอคอนของคาถา และบอร์ดส่งผลผ่าน WiFi ไปยังเซิร์ฟเวอร์ Python บนโน้ตบุ๊ก คาถาทั้ง 5 สั่งงานโน้ตบุ๊กได้ตั้งแต่เพิ่มหรือลดเสียง เปิดลิงก์ ไปจนถึงเล่นหรือหยุดวิดีโอ YouTube หน้าเว็บก็แสดงเส้นที่ไม้วาดแบบเรียลไทม์ด้วย และถ้าคลิกปุ่มสามครั้ง ไม้จะกลายเป็นเมาส์ไร้สาย</p>
+          <p>ผลทดสอบกับท่าร่ายจำลอง 1,000 ครั้ง ตัวจำแนกตอบถูกทุกครั้ง และปัดเส้นที่วาดมั่วตกเป็น fizzle ได้ 87.8% ส่วนไม้จริงร่ายได้ครบทั้ง 5 คาถาตามที่เห็นในวิดีโอ</p>
+        </div>
+        <div class="en reveal" style="--i:1" lang="en">
+          <h3>Abstract (English)</h3>
+          <p>Spellcast is a wand that knows which spell you drew in the air and makes the computer act on it. It is an Arduino UNO R4 WiFi, a GY-521 (MPU6050) gyro at the tip, and one button.</p>
+          <p>While the button is held, the gyro measures the wand's rotation 100 times a second. The board adds that up into the path the tip traced, takes 32 evenly spaced points along it, then centres and scales them, so speed and hand tremor stop mattering and only the shape is left. It compares that shape with three trained examples of each spell using Dynamic Time Warping (DTW), entirely on the board.</p>
+          <p>On release, the LED matrix shows the spell's icon and the result goes over WiFi to a Python server on the laptop, which turns the volume up or down, opens a link, or plays and pauses YouTube. A web page draws the wand's motion live, and a triple-click turns the wand into an air mouse.</p>
+          <p>On 1,000 simulated casts the classifier was right every time and rejected 87.8% of random scribbles. On the real wand, all five spells work as shown in the video.</p>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat reveal"><b class="mono">100 Hz</b><span>ความถี่เก็บค่าไจโรระหว่างกดปุ่ม</span></div>
+        <div class="stat reveal" style="--i:1"><b class="mono">32</b><span>จุดต่อการร่ายหนึ่งครั้ง เรียงห่างเท่ากันตามเส้น</span></div>
+        <div class="stat reveal" style="--i:2"><b class="mono">15</b><span>ตัวอย่างที่ฝึกไว้ คาถาละ 3 ครั้ง เก็บใน EEPROM</span></div>
+        <div class="stat reveal" style="--i:3"><b class="mono">100%</b><span>ท่าร่ายจำลอง 1,000 ครั้งจำแนกถูกทั้งหมด (test/test_dtw.cpp)</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="spells">
+    <div class="wrap">
+      <h2 class="reveal">5 คาถา กับ 1 เมาส์ไร้สาย</h2>
+      <p class="lead reveal">ทุกคลิปคือไม้จริงตอนทดสอบ เส้นเล็ก ๆ ทางซ้ายคือท่าที่ไม้บันทึกไว้ ส่วนตารางจุด 12×8 ทางขวาคือไอคอนที่ LED matrix บนบอร์ดแสดง</p>
+      <div class="bento">
+        <article class="spell wide reveal">
+          <div class="clip"><video data-src="media/lumos.mp4" poster="media/lumos.jpg" muted loop playsinline preload="none" aria-label="ร่าย Lumos: วาดวงกลมแล้ว LED matrix สว่างทั้งแผง"></video></div>
+          <div class="spell-head"><svg class="glyph" viewBox="0 0 100 100" data-path="LUMOS" aria-hidden="true"></svg><div><h3>Lumos</h3><p class="draw">วงกลมตามเข็มนาฬิกา เริ่มจากด้านบน</p></div><div class="led" data-icon="LUMOS" role="img" aria-label="ไอคอนหลอดไฟ"></div></div>
+          <dl class="effects"><dt>ไม้</dt><dd>ขึ้นรูปหลอดไฟ แล้วไฟ L กับ LED matrix ก็สว่างทั้งแผง</dd><dt>โน้ตบุ๊ก</dt><dd>เสียงดังขึ้น 10%</dd></dl>
+        </article>
+        <article class="spell reveal" style="--i:1">
+          <div class="clip"><video data-src="media/nox.mp4" poster="media/nox.jpg" muted loop playsinline preload="none" aria-label="ร่าย Nox: วาดวงกลมทวนเข็มแล้วไฟดับ"></video></div>
+          <div class="spell-head"><svg class="glyph" viewBox="0 0 100 100" data-path="NOX" aria-hidden="true"></svg><div><h3>Nox</h3><p class="draw">วงกลมทวนเข็มนาฬิกา</p></div><div class="led" data-icon="NOX" role="img" aria-label="ไอคอนพระจันทร์เสี้ยว"></div></div>
+          <dl class="effects"><dt>ไม้</dt><dd>ขึ้นรูปพระจันทร์เสี้ยว แล้วไฟก็ดับ</dd><dt>โน้ตบุ๊ก</dt><dd>เสียงเบาลง 10%</dd></dl>
+        </article>
+        <article class="spell reveal">
+          <div class="clip"><video data-src="media/leviosa.mp4" poster="media/leviosa.jpg" muted loop playsinline preload="none" aria-label="ร่าย Leviosa: สะบัดแล้วตวัดลง"></video></div>
+          <div class="spell-head"><svg class="glyph" viewBox="0 0 100 100" data-path="LEVIOSA" aria-hidden="true"></svg><div><h3>Leviosa</h3><p class="draw">สะบัดแล้วตวัดลง</p></div><div class="led" data-icon="UP" role="img" aria-label="ไอคอนลูกศรขึ้น"></div></div>
+          <dl class="effects"><dt>ไม้</dt><dd>ลูกศรลอยขึ้นบน LED matrix</dd><dt>โน้ตบุ๊ก</dt><dd>เปิดลิงก์ที่ตั้งไว้ในช่อง Spell links บนหน้าเว็บ</dd></dl>
+        </article>
+        <article class="spell wide reveal" style="--i:1">
+          <div class="clip"><video data-src="media/expelliarmus.mp4" poster="media/expelliarmus.jpg" muted loop playsinline preload="none" aria-label="ร่าย Expelliarmus: วาดตัว Z แล้ววิดีโอ YouTube เปิดขึ้นมา"></video></div>
+          <div class="spell-head"><svg class="glyph" viewBox="0 0 100 100" data-path="EXPELLIARMUS" aria-hidden="true"></svg><div><h3>Expelliarmus</h3><p class="draw">ตัว Z ซิกแซก</p></div><div class="led" data-icon="BOLT" role="img" aria-label="ไอคอนสายฟ้า"></div></div>
+          <dl class="effects"><dt>ไม้</dt><dd>สายฟ้าแลบ ถ้าต่อบัซเซอร์ไว้ก็มีเสียงช็อตด้วย</dd><dt>โน้ตบุ๊ก</dt><dd>เปิดลิงก์ของตัวเอง ในคลิปนี้คือวิดีโอ YouTube</dd></dl>
+        </article>
+        <article class="spell wide reveal">
+          <div class="clip"><video data-src="media/accio.mp4" poster="media/accio.jpg" muted loop playsinline preload="none" aria-label="ร่าย Accio: วาดตัว V แล้วลูกศรพุ่งเข้ามา"></video></div>
+          <div class="spell-head"><svg class="glyph" viewBox="0 0 100 100" data-path="ACCIO" aria-hidden="true"></svg><div><h3>Accio</h3><p class="draw">ตัว V แหลม ๆ</p></div><div class="led" data-icon="RIGHT" role="img" aria-label="ไอคอนลูกศรพุ่งเข้า"></div></div>
+          <dl class="effects"><dt>ไม้</dt><dd>ลูกศรพุ่งเข้ามาจากด้านข้าง</dd><dt>โน้ตบุ๊ก</dt><dd>หยุด YouTube ที่กำลังเล่นอยู่ ร่ายอีกครั้งก็เล่นต่อ</dd></dl>
+        </article>
+        <article class="spell reveal" style="--i:1">
+          <div class="clip"><video data-src="media/mouse.mp4" poster="media/mouse.jpg" muted loop playsinline preload="none" aria-label="คลิกปุ่มสามครั้ง LED matrix เปลี่ยนเป็นรูปลูกศรเมาส์"></video></div>
+          <div class="spell-head"><div><h3>โหมดเมาส์</h3><p class="draw">คลิกปุ่มสามครั้ง</p></div><div class="led" data-icon="MOUSE" role="img" aria-label="ไอคอนลูกศรเมาส์"></div></div>
+          <dl class="effects"><dt>ไม้</dt><dd>ขึ้นรูปลูกศรเมาส์ ขยับไม้ได้เลยโดยไม่ต้องกดปุ่ม</dd><dt>โน้ตบุ๊ก</dt><dd>ไม้คุมเคอร์เซอร์จริง คลิกหนึ่งครั้งคือคลิกซ้าย คลิกแล้วกดค้างคือคลิกขวา</dd></dl>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="demo" class="demo">
+    <div class="wrap">
+      <h2 class="reveal">ดูไม้ร่ายจริง</h2>
+      <div class="demo-frame reveal" id="demo-frame">
+        <video data-src="media/cast.mp4" poster="media/cast.jpg" muted loop playsinline preload="none" aria-label="ร่าย Accio ต่อด้วย Expelliarmus หน้าจอแสดงผลแบบสด"></video>
+      </div>
+      <p class="demo-cap reveal" id="demo-cap">ร่าย Accio ต่อด้วย Expelliarmus หน้าจอที่แสดงผลแบบสด</p>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <h2 class="reveal">จากการสะบัดข้อมือ สู่คาถา</h2>
+      <div class="how-grid">
+        <figure class="how-media reveal" style="margin:0">
+          <img src="media/live-view.jpg" width="1050" height="1400" loading="lazy" alt="หน้าเว็บบนโน้ตบุ๊กตอนร่าย Accio: เส้นที่ไม้เพิ่งวาด ลูกศรบน LED matrix จำลอง และระยะห่างจากแต่ละคาถา">
+          <p>หน้าเว็บตอนร่าย Accio: เส้นที่วาด ไอคอนบน matrix และระยะห่างจากทุกคาถา</p>
+        </figure>
+        <ol class="steps">
+          <li class="reveal"><b>กดค้าง</b><p><strong>บอร์ดบันทึกเฉพาะตอนกดปุ่มค้างไว้</strong> LED matrix จะขึ้นกรอบว่าง ๆ ให้รู้ว่ากำลังฟังอยู่ ปล่อยปุ่มเมื่อไหร่ บอร์ดก็อ่านคาถาทันที</p></li>
+          <li class="reveal"><b>เก็บค่า</b><p><strong>MPU6050 เก็บค่าลงบัฟเฟอร์ FIFO ของตัวเองวินาทีละ 100 ครั้ง</strong> WiFi จะส่งช้าแค่ไหนข้อมูลก็ไม่หาย ส่วนฟิลเตอร์ 21 Hz ในตัวเซนเซอร์ก็ตัดอาการมือสั่นออกไปก่อนถึงบอร์ด</p></li>
+          <li class="reveal"><b>ลากเส้น</b><p><strong>บอร์ดรวมการหมุนเป็นเส้นที่ปลายไม้วาด</strong> แปลงเป็นแกนของไม้ (ขึ้นลง ซ้ายขวา และการบิด) เลือก 32 จุดที่ห่างเท่ากัน แล้วปรับให้อยู่ตรงกลางและขนาดเท่ากัน การบิดข้อมือนับแค่ 30% เพราะแต่ละคนบิดข้อมือไม่เหมือนกัน</p></li>
+          <li class="reveal"><b>เทียบ</b><p><strong>Dynamic Time Warping เทียบรูปร่างนี้กับตัวอย่างที่ฝึกไว้ 15 อัน</strong> คาถาละ 3 อัน และรับมือกับการวาดเร็วบ้างช้าบ้างได้ ใกล้อันไหนที่สุดก็เป็นคาถานั้น ถ้าไกลจากทุกอัน คาถาก็ fizzle</p></li>
+          <li class="reveal"><b>ร่าย</b><p><strong>โน้ตบุ๊กรู้ก่อน</strong> บอร์ดส่ง UDP หนึ่งแพ็กเก็ต ส่งซ้ำสองรอบเผื่อ WiFi ทำหล่น ผลบนโน้ตบุ๊กจึงเริ่มในเสี้ยววินาที แล้ว LED matrix ค่อยเล่นไอคอนของคาถา</p></li>
+        </ol>
+      </div>
+      <div class="controls">
+        <h3 class="reveal">ปุ่มเดียวคุมทุกอย่าง</h3>
+        <div class="ctrl-row">
+          <div class="ctrl reveal"><kbd><i class="ph ph-hand-pointing"></i>กดค้างแล้ววาด</kbd><p>ร่ายคาถา บอร์ดอ่านผลทันทีที่ปล่อยปุ่ม</p></div>
+          <div class="ctrl reveal" style="--i:1"><kbd><i class="ph ph-arrow-counter-clockwise"></i>แตะ</kbd><p>รีเซ็ต ไฟดับแล้วกลับไปพร้อมร่าย ถ้าอยู่ในโหมดฝึกก็ข้ามไปคาถาถัดไป</p></div>
+          <div class="ctrl reveal" style="--i:2"><kbd><i class="ph ph-graduation-cap"></i>กดค้าง 2 วินาทีแบบนิ่ง ๆ</kbd><p>โหมดฝึก LED matrix จะถามแต่ละคาถา 3 รอบ เก็บใน EEPROM และสำรองไว้บนโน้ตบุ๊กด้วย</p></div>
+          <div class="ctrl reveal" style="--i:3"><kbd><i class="ph ph-cursor"></i>คลิกสามครั้ง</kbd><p>เปิดหรือปิดโหมดเมาส์ ไม้กลายเป็นเมาส์ไร้สายของโน้ตบุ๊ก</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="system" id="system">
+    <div class="wrap">
+      <h2 class="reveal">ไม้ โน้ตบุ๊ก และหน้าเว็บ</h2>
+      <p class="lead reveal">ไม้ไม่ต้องรอโน้ตบุ๊ก ตัดสินเองว่าเป็นคาถาอะไรแล้วค่อยบอกโน้ตบุ๊ก ฝั่งเซิร์ฟเวอร์ใช้แค่ไลบรารีมาตรฐานของ Python ไม่ต้องติดตั้งอะไรเพิ่ม</p>
+      <div class="flow">
+        <div class="node reveal"><h3>ไม้</h3><span class="file">firmware/spellcast/</span>
+          <ul><li>เก็บค่า ลากเส้น และจำแนกทุกการร่าย</li><li>ส่งการเคลื่อนไหวผ่าน UDP ให้หน้าเว็บดูสด</li><li>รายงานผลให้โน้ตบุ๊กก่อนเล่นไอคอน</li><li>สายเซนเซอร์หลุดแล้วกลับมา ก็ทำงานต่อได้เอง</li></ul></div>
+        <div class="link" aria-hidden="true"><span>UDP<br>WiFi</span></div>
+        <div class="node mid reveal" style="--i:1"><h3>โน้ตบุ๊ก</h3><span class="file">server/ (server.py, spells.py, mouse.py)</span>
+          <ul><li>เรียกฟังก์ชันของแต่ละคาถา: เสียง ระดับเสียง ลิงก์ เล่นและหยุด YouTube</li><li>ขยับและคลิกเมาส์จริงในโหมดเมาส์</li><li>สำรองการฝึกเป็น training.json พร้อมไฟล์ย้อนหลัง และโหลดกลับเข้าไม้ได้</li><li>โหลด spells.py ใหม่ทุกครั้งที่ร่าย แก้แล้วใช้ได้เลยไม่ต้องรีสตาร์ท</li></ul></div>
+        <div class="link" aria-hidden="true"><span>Server-Sent<br>Events</span></div>
+        <div class="node reveal" style="--i:2"><h3>หน้าเว็บ</h3><span class="file">sim/index.html</span>
+          <ul><li>วาดเส้นของไม้สด ๆ แล้วจัดเป็นรูปทรงที่สะอาด</li><li>แสดงคาถา คะแนน และ leaderboard</li><li>ตั้งลิงก์ของ Leviosa กับ Expelliarmus</li><li>มีโหมดลองวาดด้วยเมาส์ ไม่มีไม้ก็เล่นได้</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="hardware">
+    <div class="wrap">
+      <h2 class="reveal">ไม้ทำจากอะไร</h2>
+      <div class="hw-grid">
+        <div class="collage">
+          <img class="big reveal" src="media/wand-table.jpg" width="1600" height="1205" loading="lazy" alt="ไม้ที่ประกอบเสร็จวางบนโต๊ะ: บอร์ดในเคสใสกลางไม้ เซนเซอร์ติดเทปที่ปลาย ปุ่มติดเทปที่ด้ามจับ">
+          <img class="tall reveal" src="media/build-upright.jpg" width="1050" height="1400" loading="lazy" alt="ไม้รุ่นแรกถือตั้งขึ้น เห็น UNO R4 WiFi และ GY-521 ที่ปลายไม้">
+          <img class="tall reveal" style="--i:1" src="media/build-side.jpg" width="1050" height="1400" loading="lazy" alt="ไม้รุ่นแรกมองจากด้านข้าง มีสายจัมเปอร์ต่อไปที่ปลายไม้">
+        </div>
+        <div class="spec reveal" style="--i:1">
+          <h3>อุปกรณ์</h3>
+          <ul class="parts">
+            <li><b>Arduino UNO R4 WiFi</b><span>ทำงานทุกอย่าง ทั้งเก็บค่า จำแนกคาถา คุม LED matrix 12×8 และต่อ WiFi ผ่านชิป ESP32-S3 บนบอร์ด</span></li>
+            <li><b>GY-521 (MPU6050)</b><span>ไจโรและตัววัดความเร่ง ติดเทปไว้ที่ปลายไม้ เก็บค่าลง FIFO ของตัวเอง</span></li>
+            <li><b>ปุ่มกด</b><span>อยู่ใต้นิ้วโป้ง ทุกคำสั่งคือจังหวะการกดปุ่มนี้ปุ่มเดียว</span></li>
+            <li><b>Passive buzzer</b><span>ไม่บังคับ ใส่แล้วได้เสียงช็อตของ Expelliarmus กับเสียงเตือนตอนเซนเซอร์กลับมา</span></li>
+            <li><b>ไม้ สายจัมเปอร์ และเทป</b><span>ใช้ไฟจาก USB หรือพาวเวอร์แบงก์ก็ได้ เพราะทั้งการร่ายและโหมดเมาส์ส่งผ่าน WiFi</span></li>
+          </ul>
+          <h3 class="gap">การต่อสาย</h3>
+          <div class="pins">
+            <div class="pin"><small>GY-521 VCC / GND</small><span>5V / <em>GND</em></span></div>
+            <div class="pin"><small>GY-521 SDA / SCL</small><span><em>A4</em> / <em>A5</em></span></div>
+            <div class="pin"><small>ปุ่มกด</small><span><em>D12</em> → GND</span></div>
+            <div class="pin"><small>บัซเซอร์ (ไม่บังคับ)</small><span><em>D8</em> → GND</span></div>
+          </div>
+          <p class="note">ไฟไม่ต้องต่อสายเพิ่ม ใช้ไฟ L กับ LED matrix บนบอร์ดได้เลย บูตไม้ครั้งแรกแบบตั้งปลายขึ้นนิ่ง ๆ บอร์ดก็จะรู้เองว่าเซนเซอร์ติดอยู่บนไม้ในทิศไหน</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="code">
+    <div class="wrap">
+      <h2 class="reveal">ซอร์สโค้ด</h2>
+      <p class="lead reveal">ทุกไฟล์ด้านล่างโหลดตรงจาก GitHub repository จึงเป็นเวอร์ชันล่าสุดเสมอ</p>
+      <div class="code-shell reveal">
+        <div class="tabs" role="tablist" aria-label="ไฟล์ซอร์สโค้ด" id="tabs"></div>
+        <div class="code-bar">
+          <span class="path" id="code-path"></span><span class="what" id="code-what"></span>
+          <div class="acts">
+            <button class="btn btn-ghost btn-sm" id="code-copy" type="button"><i class="ph ph-copy"></i>คัดลอก</button>
+            <a class="btn btn-ghost btn-sm" id="code-gh" href="https://github.com/SICout9010/spellcast-phycom-2026"><i class="ph ph-arrow-up-right"></i>GitHub</a>
+          </div>
+        </div>
+        <div class="code-body" id="code-body" role="tabpanel" tabindex="0"></div>
+      </div>
+      <div class="run">
+        <div class="reveal"><b>1. เปิดเซิร์ฟเวอร์บนโน้ตบุ๊ก</b><p>เซิร์ฟเวอร์จะพิมพ์ IP ออกมา เอาไปใส่ใน SERVER_IP</p><code>python3 server/server.py 8050</code></div>
+        <div class="reveal" style="--i:1"><b>2. อัปโหลดโค้ดลงไม้</b><p>คัดลอก arduino_secrets.example.h เป็น arduino_secrets.h ใส่ชื่อและรหัส WiFi แล้วอัปโหลดด้วย Arduino IDE</p><code>firmware/spellcast/spellcast.ino</code></div>
+        <div class="reveal" style="--i:2"><b>3. ไม่มีฮาร์ดแวร์ก็ลองได้</b><p>เปิด sim/index.html แล้ววาดด้วยเมาส์ หรือรันไม้จำลอง</p><code>python3 server/fake_wand.py 127.0.0.1 8050</code></div>
+      </div>
+      <div class="ctas reveal"><a class="btn btn-primary" href="https://github.com/SICout9010/spellcast-phycom-2026/archive/refs/heads/main.zip"><i class="ph ph-download-simple"></i>ดาวน์โหลด ZIP</a></div>
+    </div>
+  </section>
+
+  <section id="poster">
+    <div class="wrap poster-grid">
+      <a class="poster-thumb reveal" href="poster/spellcast-poster-a1.pdf"><img src="poster/spellcast-poster-preview.jpg" width="1190" height="1684" loading="lazy" alt="โปสเตอร์ Spellcast ขนาด A1"></a>
+      <div class="reveal" style="--i:1">
+        <h2>โปสเตอร์ A1</h2>
+        <p class="lead">สรุปโปรเจกต์ไว้ในหน้าเดียว ทั้งตัวไม้ คาถาทั้ง 5 พร้อมเส้นจริงที่ไม้บันทึกไว้ และเส้นทางของคาถาจากข้อมือถึงโน้ตบุ๊ก ขนาด 594 × 841 มม. พร้อมพิมพ์</p>
+        <div class="ctas"><a class="btn btn-primary" href="poster/spellcast-poster-a1.pdf"><i class="ph ph-file-pdf"></i>เปิด PDF</a><a class="btn btn-ghost" href="poster/spellcast-poster-a1.png"><i class="ph ph-image"></i>PNG</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <a class="brand" href="#top">Spellcast</a>
+      <ul class="team" id="team" hidden></ul>
+      <p class="small">Physical Computing Project 2026 - IT KMITL<br>ชื่อคาถาเป็นลิขสิทธิ์ของ Warner Bros. ใช้ในงานวิชาเรียนเท่านั้น</p>
+    </div>
+    <a class="btn btn-ghost" href="https://github.com/SICout9010/spellcast-phycom-2026"><i class="ph ph-github-logo"></i>SICout9010/spellcast-phycom-2026</a>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="spells.js"></script>
+<script>
+// ---- Fill these in ----
+const YOUTUBE_ID = "Yrkd9iAUJE0";  // 11 ตัวอักษรหลัง "watch?v=" ในลิงก์ YouTube ของวิดีโอเดโม
+const TEAM = [
+  ["ภคพล ศรนารายณ์", "68070130"],
+  ["ภูมิทอง ไพบูลย์พันธ์", "68070141"],
+  ["ภูริพัฒน์ สุโนภักดิ์", "68070146"],
+  ["สิทธันต์ อารมณ์ประเสริฐ", "68070181"],
+];
+
+const REPO = "SICout9010/spellcast-phycom-2026";
+const RAW = `https://raw.githubusercontent.com/${REPO}/main/`;
+const $ = id => document.getElementById(id);
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function startOf(d) { const [x, y] = d.slice(1).split("C")[0].split(" ").map(Number); return { x, y }; }
+
+for (const svg of document.querySelectorAll("svg[data-path]")) {
+  const d = PATHS[svg.dataset.path], s = startOf(d);
+  svg.innerHTML = `<path d="${d}"/><circle cx="${s.x}" cy="${s.y}" r="6"/>`;
+}
+for (const el of document.querySelectorAll(".led[data-icon]"))
+  el.innerHTML = ICONS[el.dataset.icon].join("").split("").map(c => `<i${c === "#" ? ' class="on"' : ""}></i>`).join("");
+
+// ---- Hero: draw each spell's real trace in turn, a light running ahead like the wand tip ----
+(function heroTrace() {
+  const path = $("trace-path"), tip = $("trace-tip"), name = $("trace-name");
+  const order = ["LUMOS", "LEVIOSA", "EXPELLIARMUS", "ACCIO", "NOX"];
+  const nice = n => n[0] + n.slice(1).toLowerCase();
+  path.setAttribute("d", PATHS.LUMOS);
+  if (still) { path.style.strokeDashoffset = 0; return; }
+  let k = 0;
+  function draw() {
+    const spell = order[k++ % order.length];
+    path.setAttribute("d", PATHS[spell]);
+    name.textContent = nice(spell);
+    const len = path.getTotalLength(), t0 = performance.now(), DRAW = 1600, HOLD = 1500, FADE = 500;
+    path.style.opacity = 1;
+    (function frame(now) {
+      const t = Math.min((now - t0) / DRAW, 1), e = t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      path.style.strokeDashoffset = 1 - e;
+      const p = path.getPointAtLength(e * len);
+      tip.setAttribute("cx", p.x); tip.setAttribute("cy", p.y);
+      tip.style.opacity = t < 1 ? 1 : 0;
+      if (t < 1) requestAnimationFrame(frame);
+      else setTimeout(() => { path.style.transition = `opacity ${FADE}ms`; path.style.opacity = 0;
+        setTimeout(() => { path.style.transition = ""; draw(); }, FADE + 150); }, HOLD);
+    })(t0);
+  }
+  draw();
+})();
+
+// ---- Reveal on scroll, and play each loop only while it is on screen ----
+const reveal = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); reveal.unobserve(e.target); } }), { rootMargin: "0px 0px -8% 0px" });
+document.querySelectorAll(".reveal").forEach(el => reveal.observe(el));
+
+function watchVideo(v) {
+  if (still) { v.controls = true; v.preload = "none"; v.src = v.dataset.src; return; }  // no autoplay: the poster shows, play by hand
+  new IntersectionObserver(([e]) => {
+    if (e.isIntersecting) { if (!v.src) v.src = v.dataset.src; v.play().catch(() => {}); }
+    else v.pause();
+  }, { threshold: .35 }).observe(v);
+}
+document.querySelectorAll("video[data-src]").forEach(watchVideo);
+
+// ---- Nav: highlight the section on screen ----
+const navLinks = [...document.querySelectorAll(".nav-links a")];
+const spy = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting) navLinks.forEach(a => a.classList.toggle("on", a.hash === "#" + e.target.id));
+}), { rootMargin: "-45% 0px -50% 0px" });
+navLinks.forEach(a => { const s = document.querySelector(a.hash); if (s) spy.observe(s); });
+
+// ---- Demo: the YouTube video once it's uploaded, else the loop already in the page ----
+if (YOUTUBE_ID) {
+  const frame = $("demo-frame");
+  frame.innerHTML = `<button class="yt-play" type="button" aria-label="เล่นวิดีโอเดโม"><img src="https://i.ytimg.com/vi/${YOUTUBE_ID}/maxresdefault.jpg" alt=""><span><i class="ph ph-play"></i></span></button>`;
+  frame.querySelector("button").addEventListener("click", () => {
+    frame.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${YOUTUBE_ID}?autoplay=1&rel=0" title="วิดีโอเดโม Spellcast" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+  });
+  $("demo-cap").textContent = "วิดีโอเดโมเต็ม: ทุกคาถา โหมดเมาส์ และสมาชิกในทีม";
+}
+
+// ---- Team ----
+if (TEAM.length) {
+  $("team").innerHTML = TEAM.map(([n, id]) => `<li>${n}${id ? `<span>${id}</span>` : ""}</li>`).join("");
+  $("team").hidden = false;
+}
+
+// ---- Source code viewer ----
+const FILES = [
+  ["firmware/spellcast/spellcast.ino", "cpp", "เฟิร์มแวร์ของไม้: กดค้างเพื่อร่าย โหมดฝึก เอฟเฟกต์ และสตรีมสด"],
+  ["firmware/spellcast/spell_dtw.h", "cpp", "ตัวจำแนกคาถา: แปลงเป็นเส้น DTW และแกนของไม้"],
+  ["server/server.py", "python", "เซิร์ฟเวอร์บนโน้ตบุ๊ก: รับ UDP สตรีมสด สำรองการฝึก และโหมดเมาส์"],
+  ["server/spells.py", "python", "สิ่งที่โน้ตบุ๊กทำเมื่อร่ายแต่ละคาถา"],
+  ["server/mouse.py", "python", "ขยับและคลิกเมาส์จริงบนเครื่อง"],
+  ["sim/index.html", "xml", "หน้าเว็บ: ดูไม้แบบสด และโหมดลองวาด"],
+  ["test/test_dtw.cpp", "cpp", "ชุดทดสอบ: ท่าร่ายจำลอง 1,000 ครั้ง และแกนของไม้"],
+];
+// On github.io read from the repo; when previewing locally from the repo root, read the files next door.
+const base = location.hostname.endsWith("github.io") ? RAW : "../";
+const cache = {};
+const esc = s => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+const body = $("code-body");
+let current = 0;
+
+$("tabs").innerHTML = FILES.map(([p], i) => `<button class="tab" role="tab" type="button" id="tab-${i}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}">${p.split("/").pop()}</button>`).join("");
+const tabs = [...document.querySelectorAll(".tab")];
+tabs.forEach((t, i) => {
+  t.addEventListener("click", () => show(i));
+  t.addEventListener("keydown", e => {
+    const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (d) { const j = (i + d + tabs.length) % tabs.length; tabs[j].focus(); show(j); }
+  });
+});
+
+async function show(i) {
+  current = i;
+  const [path, lang, what] = FILES[i];
+  tabs.forEach((t, j) => { t.setAttribute("aria-selected", j === i); t.tabIndex = j === i ? 0 : -1; });
+  body.setAttribute("aria-labelledby", `tab-${i}`);
+  $("code-path").textContent = path;
+  $("code-what").textContent = what;
+  $("code-gh").href = `https://github.com/${REPO}/blob/main/${path}`;
+  if (!cache[path]) {
+    body.innerHTML = `<div class="skeleton" aria-label="กำลังโหลด">${Array.from({ length: 14 }, (_, k) => `<i style="width:${30 + (k * 37) % 60}%"></i>`).join("")}</div>`;
+    try {
+      const r = await fetch(base + path);
+      if (!r.ok) throw new Error(r.status);
+      cache[path] = await r.text();
+    } catch (e) {
+      if (current === i) body.innerHTML = `<p class="code-error">โหลด ${esc(path)} ที่นี่ไม่ได้ <a href="https://github.com/${REPO}/blob/main/${path}">อ่านบน GitHub</a></p>`;
+      return;
+    }
+  }
+  if (current !== i) return;
+  const text = cache[path], lines = text.replace(/\n$/, "").split("\n").length;
+  $("code-what").textContent = `${what} · ${lines.toLocaleString()} บรรทัด`;
+  const html = window.hljs ? hljs.highlight(text, { language: lang }).value : esc(text);
+  body.innerHTML = `<pre><code class="hljs">${html}</code></pre>`;
+  body.scrollTop = 0;
+}
+$("code-copy").addEventListener("click", async () => {
+  const text = cache[FILES[current][0]];
+  if (!text) return;
+  try { await navigator.clipboard.writeText(text); $("code-copy").innerHTML = '<i class="ph ph-check"></i>คัดลอกแล้ว'; }
+  catch (e) { $("code-copy").innerHTML = '<i class="ph ph-x"></i>คัดลอกไม่สำเร็จ'; }
+  setTimeout(() => { $("code-copy").innerHTML = '<i class="ph ph-copy"></i>คัดลอก'; }, 1600);
+});
+show(0);
+</script>
+</body>
+</html>
